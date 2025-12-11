@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Wand2, Check, Music, Sticker, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Wand2, Check, Music, Sticker, Loader2, RefreshCw, Sparkles, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGenerateCaptions } from "@/hooks/useAI";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ interface CaptionData {
     text: string;
     hashtags: string[];
   }>;
+  extendedPost?: string;
   music: string[];
   stickers: string[];
 }
@@ -244,6 +245,18 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, category = "Genera
                 </div>
                 <ScrollArea className="flex-1 p-6">
                   <div className="space-y-8">
+                    {aiResponse?.extendedPost && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-zinc-400">
+                          <FileText className="w-4 h-4" />
+                          <span className="font-display text-sm font-bold uppercase tracking-tight">Extended Post</span>
+                        </div>
+                        <div className="p-3 bg-white/5 border border-white/5 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                          {aiResponse.extendedPost}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-zinc-400">
                         <Music className="w-4 h-4" />
