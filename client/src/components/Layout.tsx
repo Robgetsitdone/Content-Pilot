@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Library, Settings2, BarChart3, Menu, Zap } from "lucide-react";
+import { LayoutDashboard, Library, Settings2, Zap, Menu } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { WEEKLY_KPIS } from "@/lib/mockData";
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -54,13 +55,55 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="p-8">
-        <div className="border border-white/10 bg-zinc-900/30 p-4">
-          <div className="flex justify-between items-end mb-2">
-            <span className="font-display text-xs font-bold text-zinc-500 uppercase tracking-wider">Weekly Goal</span>
-            <span className="font-mono text-xs text-white">13/20</span>
+        <div className="border border-white/10 bg-zinc-900/30 p-5 space-y-4">
+          <div className="flex justify-between items-end">
+            <span className="font-display text-xs font-bold text-zinc-500 uppercase tracking-wider">Weekly Goals</span>
           </div>
-          <div className="w-full bg-zinc-800 h-1">
-            <div className="bg-white h-full w-[65%] shadow-[0_0_15px_rgba(255,255,255,0.3)]"></div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-zinc-600 font-mono block">Posts</span>
+              <div className="flex items-end gap-1">
+                <span className="text-white font-bold">{WEEKLY_KPIS.posts.current}</span>
+                <span className="text-zinc-600 text-xs">/ {WEEKLY_KPIS.posts.target}</span>
+              </div>
+              <div className="h-0.5 bg-zinc-800 w-full mt-1">
+                <div className="h-full bg-white w-[60%]" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-zinc-600 font-mono block">Reels</span>
+              <div className="flex items-end gap-1">
+                <span className="text-white font-bold">{WEEKLY_KPIS.reels.current}</span>
+                <span className="text-zinc-600 text-xs">/ {WEEKLY_KPIS.reels.target}</span>
+              </div>
+              <div className="h-0.5 bg-zinc-800 w-full mt-1">
+                <div className="h-full bg-emerald-500 w-[33%]" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-zinc-600 font-mono block">Stories</span>
+              <div className="flex items-end gap-1">
+                <span className="text-white font-bold">{WEEKLY_KPIS.stories.current}</span>
+                <span className="text-zinc-600 text-xs">/ {WEEKLY_KPIS.stories.target}</span>
+              </div>
+              <div className="h-0.5 bg-zinc-800 w-full mt-1">
+                <div className="h-full bg-indigo-500 w-[60%]" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-zinc-600 font-mono block">Shoutouts</span>
+              <div className="flex items-end gap-1">
+                <span className="text-white font-bold">{WEEKLY_KPIS.shoutouts.current}</span>
+                <span className="text-zinc-600 text-xs">/ {WEEKLY_KPIS.shoutouts.target}</span>
+              </div>
+              <div className="h-0.5 bg-zinc-800 w-full mt-1">
+                <div className="h-full bg-purple-500 w-[40%]" />
+              </div>
+            </div>
           </div>
         </div>
       </div>

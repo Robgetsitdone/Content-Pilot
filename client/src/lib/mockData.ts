@@ -55,7 +55,7 @@ export const MOCK_VIDEOS: Video[] = [
     category: "Family",
     status: "scheduled",
     scheduledDate: addDays(new Date(), 1),
-    caption: "Snowboarding with the kids! 🏂 #family #travel",
+    caption: "Snowboarding with the kids! 🏂 The snow was absolutely perfect this weekend. Here is a quick recap of our trip.",
   },
   {
     id: "4",
@@ -64,7 +64,7 @@ export const MOCK_VIDEOS: Video[] = [
     category: "Software",
     status: "scheduled",
     scheduledDate: addDays(new Date(), 3),
-    caption: "CAC vs LTV explained simply. #saas #business",
+    caption: "CAC vs LTV explained simply. If you don't know these numbers, you don't have a business.",
   },
   {
     id: "5",
@@ -104,4 +104,56 @@ export const INITIAL_STRATEGY: StrategySettings = {
     "Fitness": 30,
     // others default to 0
   },
+};
+
+export const POST_IDEAS = [
+  {
+    id: 1,
+    title: "Reaction to OpenAI's Sora",
+    category: "Technology",
+    reason: "Trending in your niche",
+    difficulty: "Easy"
+  },
+  {
+    id: 2,
+    title: "How I balance 3 kids + Startup",
+    category: "Parenting",
+    reason: "High engagement potential",
+    difficulty: "Medium"
+  },
+  {
+    id: 3,
+    title: "Sales objection handling roleplay",
+    category: "Sales",
+    reason: "Frequently asked by followers",
+    difficulty: "Hard"
+  }
+];
+
+export const SOCIAL_TRENDS = [
+  {
+    id: 1,
+    tag: "#DayInTheLife",
+    volume: "2.4M posts",
+    growth: "+15%"
+  },
+  {
+    id: 2,
+    tag: "#SaaSGrowth",
+    volume: "850K posts",
+    growth: "+22%"
+  },
+  {
+    id: 3,
+    tag: "Minimalist Setup",
+    volume: "1.2M posts",
+    growth: "+8%"
+  }
+];
+
+export const WEEKLY_KPIS = {
+  posts: { current: 3, target: 5 },
+  reels: { current: 1, target: 3 },
+  stories: { current: 12, target: 20 },
+  shoutouts: { current: 2, target: 5 }
 };
