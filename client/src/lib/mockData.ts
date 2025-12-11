@@ -16,6 +16,19 @@ export const CATEGORIES = [
 
 export type VideoStatus = "posted" | "scheduled" | "draft" | "processing";
 
+export interface AICaption {
+  id: string;
+  tone: string;
+  text: string;
+  hashtags: string[];
+}
+
+export interface AIMetadata {
+  captions: AICaption[];
+  music: string[];
+  stickers: string[];
+}
+
 export interface Video {
   id: string;
   title: string;
@@ -25,7 +38,33 @@ export interface Video {
   scheduledDate?: Date;
   caption?: string;
   views?: number;
+  aiData?: AIMetadata;
 }
+
+export const MOCK_AI_RESPONSE: AIMetadata = {
+  captions: [
+    {
+      id: "c1",
+      tone: "Inspirational & Epic",
+      text: "Reaching the top isn't just about the view; it's about proving to yourself what you're capable of. The fog is just a reminder that even when the path isn't clear, you keep climbing. 🏔️✨",
+      hashtags: ["#adventure", "#hiking", "#mountainlife", "#view", "#travel"]
+    },
+    {
+      id: "c2",
+      tone: "Short & Punchy",
+      text: "Head in the clouds, feet on the ground. Best view in the Bay. ☁️👁️",
+      hashtags: ["#bayarea", "#hiking", "#views"]
+    },
+    {
+      id: "c3",
+      tone: "Question/Engagement",
+      text: "Ever felt like you're on top of the world? 🌍 What's the one hike that changed your perspective? Let me know below! 👇",
+      hashtags: ["#traveldiaries", "#questionoftheday", "#nature"]
+    }
+  ],
+  music: ["M83 - Midnight City", "Hollow Coves - Coastline", "Ambient Nature Sounds"],
+  stickers: ["'Adventure Awaits' Badge", "Location Tag", "Temperature Overlay"]
+};
 
 export const MOCK_VIDEOS: Video[] = [
   {

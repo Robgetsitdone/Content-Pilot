@@ -1,13 +1,14 @@
 import { Layout } from "@/components/Layout";
-import { MOCK_VIDEOS, VideoStatus, CATEGORIES } from "@/lib/mockData";
+import { MOCK_VIDEOS, VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import generatedImage from '@assets/generated_images/abstract_dark_data_flow_background_with_subtle_grid_and_violet_accents.png';
+import { CaptionGenerator } from "@/components/CaptionGenerator";
+import { useToast } from "@/hooks/use-toast";
 
 const StatusBadge = ({ status }: { status: VideoStatus }) => {
   const styles = {
@@ -83,10 +84,26 @@ const VideoCard = ({ video }: { video: any }) => (
 export default function Library() {
   const [filter, setFilter] = useState("all");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isCaptionGenOpen, setIsCaptionGenOpen] = useState(false);
+  const { toast } = useToast();
 
   const filteredVideos = MOCK_VIDEOS.filter(v => 
     filter === "all" ? true : v.status === filter
   );
+
+  const handleStartUpload = () => {
+    setIsUploadOpen(false);
+    setIsCaptionGenOpen(true);
+  };
+
+  const handleCaptionSelect = (caption: string) => {
+    toast({
+      title: "Strategy Applied",
+      description: "Asset has been updated with AI-generated caption and scheduled.",
+      duration: 3000,
+    });
+    // In a real app, this would update the video data
+  };
 
   return (
     <Layout>
@@ -117,7 +134,7 @@ export default function Library() {
                    </div>
                    <div className="text-center space-y-2">
                       <h3 className="font-display text-2xl font-bold text-white uppercase">Drop Zone</h3>
-                      <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">or click to browse</p>
+                      <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">or click to browse Google Drive</p>
                    </div>
                 </div>
              </div>
@@ -125,13 +142,13 @@ export default function Library() {
                 <div className="space-y-4">
                    <h4 className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Processing Intelligence</h4>
                    <div className="grid grid-cols-2 gap-4">
-                      <button className="flex items-center gap-3 p-4 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-600 transition-all text-left">
-                         <div className="p-2 bg-black border border-zinc-800">
-                           <Wand2 className="w-4 h-4 text-white" />
+                      <button className="flex items-center gap-3 p-4 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-600 transition-all text-left group">
+                         <div className="p-2 bg-black border border-zinc-800 group-hover:border-primary/50 transition-colors">
+                           <Wand2 className="w-4 h-4 text-white group-hover:text-primary transition-colors" />
                          </div>
                          <div>
-                           <div className="font-bold text-white text-sm">Auto-Caption</div>
-                           <div className="text-[10px] text-zinc-500 uppercase">AI Generated</div>
+                           <div className="font-bold text-white text-sm">Gemini AI</div>
+                           <div className="text-[10px] text-zinc-500 uppercase">Auto-Caption & Tag</div>
                          </div>
                       </button>
                       <button className="flex items-center gap-3 p-4 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-600 transition-all text-left">
@@ -139,19 +156,28 @@ export default function Library() {
                            <Search className="w-4 h-4 text-white" />
                          </div>
                          <div>
-                           <div className="font-bold text-white text-sm">Smart Tag</div>
-                           <div className="text-[10px] text-zinc-500 uppercase">Auto-Categorize</div>
+                           <div className="font-bold text-white text-sm">Manual</div>
+                           <div className="text-[10px] text-zinc-500 uppercase">Custom Entry</div>
                          </div>
                       </button>
                    </div>
                 </div>
-                <Button className="w-full h-12 rounded-none bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-wide">
-                  Initialize Upload
+                <Button 
+                  className="w-full h-12 rounded-none bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-wide"
+                  onClick={handleStartUpload}
+                >
+                  Process with AI
                 </Button>
              </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      <CaptionGenerator 
+        isOpen={isCaptionGenOpen} 
+        onClose={() => setIsCaptionGenOpen(false)}
+        onSelect={handleCaptionSelect}
+      />
 
       <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl border-b border-white/10 pb-6 mb-8 pt-2">
         <div className="flex flex-col md:flex-row gap-6 items-center">
