@@ -20,10 +20,20 @@ interface CaptionData {
   stickers: string[];
 }
 
+interface SelectedCaptionData {
+  caption: string;
+  tone: string;
+  hashtags: string[];
+  category: string;
+  aiData: CaptionData;
+  mediaPreviewUrl?: string;
+  mediaType?: "image" | "video";
+}
+
 interface CaptionGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (caption: string, aiData: CaptionData) => void;
+  onSelect: (data: SelectedCaptionData) => void;
   files?: File[];
   category?: string;
 }
@@ -83,7 +93,24 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], catego
     if (selectedCaptionId && aiResponse) {
       const caption = aiResponse.captions.find(c => c.id === selectedCaptionId);
       if (caption) {
-        onSelect(caption.text + "\n\n" + caption.hashtags.join(" "), aiResponse);
+        let mediaPreviewUrl: string | undefined;
+        let mediaType: "image" | "video" | undefined;
+        
+        if (files.length > 0) {
+          const file = files[0];
+          mediaPreviewUrl = URL.createObjectURL(file);
+          mediaType = file.type.startsWith("video/") ? "video" : "image";
+        }
+        
+        onSelect({
+          caption: caption.text,
+          tone: caption.tone,
+          hashtags: caption.hashtags,
+          category: selectedCategory,
+          aiData: aiResponse,
+          mediaPreviewUrl,
+          mediaType,
+        });
         onClose();
       }
     }
