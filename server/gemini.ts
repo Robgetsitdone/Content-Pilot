@@ -1,16 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const userKey = process.env.GEMINI_API_KEY;
 const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
 
+const apiKey = replitKey || userKey;
+
 if (!apiKey) {
-  throw new Error("GEMINI_API_KEY is not set. Please add your Gemini API key to secrets.");
+  throw new Error("No Gemini API key available. Please add GEMINI_API_KEY to secrets.");
 }
+
+const useReplitIntegration = !!replitKey;
 
 export const genAI = new GoogleGenAI({ 
   apiKey,
-  httpOptions: process.env.GEMINI_API_KEY ? undefined : (baseUrl ? { baseUrl, apiVersion: "" } : undefined),
+  httpOptions: useReplitIntegration && baseUrl ? { baseUrl, apiVersion: "" } : undefined,
 });
+
+const MODEL = useReplitIntegration ? "gemini-2.5-flash" : "gemini-1.5-flash";
 
 const VOICE_GUIDELINES = `
 VOICE & STYLE RULES (MUST FOLLOW):
@@ -51,40 +58,18 @@ FAMILY POST VOICE:
 - Warm but not cheesy, genuine pride without bragging
 ` : ''}
 
-FOR EACH CAPTION:
-1. A tone label (e.g., "Quick & Witty", "Proud Dad Moment", "Real Talk")
-2. The caption text (short, punchy, with a witty hashtag)
-3. 3-5 relevant hashtags (make at least one witty/custom)
+Generate exactly 3 captions. Each caption needs: tone label, short text (under 50 words), and 3 hashtags.
+Also include: one extended post (100 words max), 3 music suggestions, 3 sticker ideas.
 
-ALSO CREATE ONE "EXTENDED POST" with:
-- A relatable or humorous hook
-- Vivid description of the experience
-- An educational tip or insight
-- A personal moment of struggle or victory
-- End with a fun question or call to action for engagement
-
-Return as valid JSON:
-{
-  "captions": [
-    {
-      "id": "c1",
-      "tone": "tone label",
-      "text": "caption text here",
-      "hashtags": ["#hashtag1", "#wittyhashtag", "#hashtag3"]
-    }
-  ],
-  "extendedPost": "The full extended post content here...",
-  "music": ["track 1", "track 2", "track 3"],
-  "stickers": ["sticker idea 1", "sticker idea 2", "sticker idea 3"]
-}`;
+Return ONLY valid JSON with no markdown:
+{"captions":[{"id":"c1","tone":"tone","text":"caption","hashtags":["#tag1","#tag2","#tag3"]},{"id":"c2","tone":"tone","text":"caption","hashtags":["#tag1","#tag2","#tag3"]},{"id":"c3","tone":"tone","text":"caption","hashtags":["#tag1","#tag2","#tag3"]}],"extendedPost":"extended content","music":["song1","song2","song3"],"stickers":["sticker1","sticker2","sticker3"]}`;
 
   const result = await genAI.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL,
     contents: prompt,
     config: {
-      temperature: 0.9,
-      topP: 0.95,
-      maxOutputTokens: 2048,
+      temperature: 0.8,
+      maxOutputTokens: 4096,
     }
   });
   
@@ -136,7 +121,7 @@ ${VOICE_GUIDELINES}
 Provide a helpful, concise response. Keep it conversational and actionable. No corporate speak.`;
 
   const result = await genAI.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODEL,
     contents: prompt,
     config: {
       temperature: 0.7,
