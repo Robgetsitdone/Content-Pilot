@@ -13,10 +13,13 @@ export const videos = pgTable("videos", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   thumbnail: text("thumbnail").notNull(),
+  mediaUrl: text("media_url"),
+  mediaType: text("media_type").$type<"image" | "video">(),
   category: text("category").notNull(),
   status: text("status").notNull().$type<"posted" | "scheduled" | "draft" | "processing">(),
   scheduledDate: timestamp("scheduled_date"),
   caption: text("caption"),
+  captionTone: text("caption_tone"),
   views: integer("views").default(0),
   aiData: jsonb("ai_data").$type<{
     captions: Array<{
@@ -25,6 +28,7 @@ export const videos = pgTable("videos", {
       text: string;
       hashtags: string[];
     }>;
+    extendedPost?: string;
     music: string[];
     stickers: string[];
   }>(),
