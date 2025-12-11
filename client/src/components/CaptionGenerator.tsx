@@ -28,7 +28,7 @@ interface CaptionGeneratorProps {
   category?: string;
 }
 
-export function CaptionGenerator({ isOpen, onClose, onSelect, category = "General" }: CaptionGeneratorProps) {
+export function CaptionGenerator({ isOpen, onClose, onSelect, file, category = "General" }: CaptionGeneratorProps) {
   const [step, setStep] = useState<"input" | "analyzing" | "generating" | "results">("input");
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [contentDescription, setContentDescription] = useState("");
@@ -40,12 +40,19 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, category = "Genera
   useEffect(() => {
     if (isOpen) {
       setStep("input");
-      setContentDescription("");
+      if (file) {
+        const fileType = file.type.startsWith("video/") ? "video" : "image";
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        setContentDescription(`Uploaded ${fileType}: ${nameWithoutExt}`);
+        setSelectedCategory(category);
+      } else {
+        setContentDescription("");
+      }
       setSelectedCaptionId(null);
       setAiResponse(null);
       setSelectedCategory(category);
     }
-  }, [isOpen, category]);
+  }, [isOpen, category, file]);
 
   const handleGenerate = async () => {
     if (!contentDescription.trim()) return;
