@@ -1,15 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
 
 if (!apiKey) {
-  throw new Error("AI_INTEGRATIONS_GEMINI_API_KEY is not set");
+  throw new Error("GEMINI_API_KEY is not set. Please add your Gemini API key to secrets.");
 }
 
 export const genAI = new GoogleGenAI({ 
   apiKey,
-  httpOptions: baseUrl ? { baseUrl, apiVersion: "" } : undefined,
+  httpOptions: process.env.GEMINI_API_KEY ? undefined : (baseUrl ? { baseUrl, apiVersion: "" } : undefined),
 });
 
 const VOICE_GUIDELINES = `
