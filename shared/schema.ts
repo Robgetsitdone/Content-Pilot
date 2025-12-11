@@ -15,12 +15,20 @@ export const videos = pgTable("videos", {
   thumbnail: text("thumbnail").notNull(),
   mediaUrl: text("media_url"),
   mediaType: text("media_type").$type<"image" | "video">(),
+  postType: text("post_type").$type<"reel" | "story" | "post" | "short">(),
+  platform: text("platform").$type<"instagram" | "tiktok" | "youtube" | "all">(),
   category: text("category").notNull(),
   status: text("status").notNull().$type<"posted" | "scheduled" | "draft" | "processing">(),
   scheduledDate: timestamp("scheduled_date"),
+  publishedDate: timestamp("published_date"),
   caption: text("caption"),
   captionTone: text("caption_tone"),
   views: integer("views").default(0),
+  likes: integer("likes").default(0),
+  shares: integer("shares").default(0),
+  saves: integer("saves").default(0),
+  comments: integer("comments").default(0),
+  reach: integer("reach").default(0),
   aiData: jsonb("ai_data").$type<{
     captions: Array<{
       id: string;
