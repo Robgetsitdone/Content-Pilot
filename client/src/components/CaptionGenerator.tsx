@@ -24,11 +24,11 @@ interface CaptionGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (caption: string, aiData: CaptionData) => void;
-  file?: File | null;
+  files?: File[];
   category?: string;
 }
 
-export function CaptionGenerator({ isOpen, onClose, onSelect, file, category = "General" }: CaptionGeneratorProps) {
+export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], category = "General" }: CaptionGeneratorProps) {
   const [step, setStep] = useState<"input" | "analyzing" | "generating" | "results">("input");
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [contentDescription, setContentDescription] = useState("");
@@ -40,10 +40,13 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, file, category = "
   useEffect(() => {
     if (isOpen) {
       setStep("input");
-      if (file) {
-        const fileType = file.type.startsWith("video/") ? "video" : "image";
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-        setContentDescription(`Uploaded ${fileType}: ${nameWithoutExt}`);
+      if (files.length > 0) {
+        const fileDescriptions = files.map(file => {
+          const fileType = file.type.startsWith("video/") ? "video" : "image";
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+          return `${fileType}: ${nameWithoutExt}`;
+        });
+        setContentDescription(`Uploaded ${files.length} file(s): ${fileDescriptions.join(", ")}`);
         setSelectedCategory(category);
       } else {
         setContentDescription("");
@@ -52,7 +55,7 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, file, category = "
       setAiResponse(null);
       setSelectedCategory(category);
     }
-  }, [isOpen, category, file]);
+  }, [isOpen, category, files]);
 
   const handleGenerate = async () => {
     if (!contentDescription.trim()) return;

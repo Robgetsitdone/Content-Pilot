@@ -86,7 +86,7 @@ export default function Library() {
   const [filter, setFilter] = useState("all");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isCaptionGenOpen, setIsCaptionGenOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("General");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,50 +99,77 @@ export default function Library() {
     filter === "all" ? true : v.status === filter
   );
 
-  const handleFileSelect = (file: File) => {
+  const handleFilesSelect = (files: FileList) => {
     const validTypes = ["video/mp4", "video/quicktime", "image/jpeg", "image/png", "image/gif"];
-    if (!validTypes.some(type => file.type.includes(type))) {
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+    
+    Array.from(files).forEach(file => {
+      if (validTypes.some(type => file.type.includes(type))) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(file.name);
+      }
+    });
+    
+    if (invalidFiles.length > 0) {
       toast({
-        title: "Invalid File Type",
-        description: "Please upload a video (MP4, MOV) or image (PNG, JPG, GIF)",
+        title: "Some Files Skipped",
+        description: `Invalid file types: ${invalidFiles.join(", ")}. Only MP4, MOV, PNG, JPG, GIF allowed.`,
         variant: "destructive",
-        duration: 3000,
+        duration: 4000,
       });
-      return;
     }
-    setSelectedFile(file);
+    
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFilesSelect(files);
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFilesSelect(files);
     }
+    e.currentTarget.value = '';
+  };
+
+  const handleDropZoneClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleStartUpload = () => {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       toast({
-        title: "No File Selected",
-        description: "Please select a file to upload",
+        title: "No Files Selected",
+        description: "Please select at least one file to upload",
         variant: "destructive",
         duration: 3000,
       });
@@ -203,52 +230,75 @@ export default function Library() {
              <input
                ref={fileInputRef}
                type="file"
+               multiple
                accept="video/mp4,video/quicktime,image/jpeg,image/png,image/gif"
                onChange={handleFileInputChange}
                className="hidden"
                data-testid="input-file-upload"
              />
              <div 
-               className={`relative h-80 w-full flex flex-col items-center justify-center group cursor-pointer overflow-hidden border-b border-white/10 transition-all ${
+               className={`relative ${selectedFiles.length > 0 ? 'h-auto min-h-[200px]' : 'h-80'} w-full flex flex-col items-center justify-center group cursor-pointer overflow-hidden border-b border-white/10 transition-all ${
                  isDragging 
                    ? "bg-primary/10 border-primary" 
-                   : selectedFile
+                   : selectedFiles.length > 0
                    ? "bg-zinc-900/50 border-primary/50"
                    : "bg-zinc-900"
                }`}
-               onClick={() => fileInputRef.current?.click()}
+               onClick={handleDropZoneClick}
                onDrop={handleDrop}
                onDragOver={handleDragOver}
                onDragLeave={handleDragLeave}
              >
                 <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_25%,rgba(255,255,255,0.05)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.05)_75%,rgba(255,255,255,0.05)_100%)] bg-[length:24px_24px] opacity-20" />
                 
-                <div className="relative z-10 flex flex-col items-center gap-6 transition-transform duration-500 group-hover:scale-105">
-                   <div className={`w-24 h-24 border-2 border-dashed flex items-center justify-center rounded-none transition-all ${
-                     isDragging || selectedFile
-                       ? "border-white bg-white/10"
-                       : "border-zinc-700 group-hover:border-white group-hover:bg-white/5"
-                   }`}>
-                      <UploadCloud className={`w-10 h-10 transition-colors ${
-                        isDragging || selectedFile
-                          ? "text-white"
-                          : "text-zinc-500 group-hover:text-white"
-                      }`} />
-                   </div>
-                   <div className="text-center space-y-2">
-                      <h3 className="font-display text-2xl font-bold text-white uppercase">
-                        {selectedFile ? "File Selected" : "Drop Zone"}
+                {selectedFiles.length > 0 ? (
+                  <div className="relative z-10 w-full p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-display text-xl font-bold text-white uppercase">
+                        {selectedFiles.length} File{selectedFiles.length > 1 ? 's' : ''} Selected
                       </h3>
-                      {selectedFile ? (
-                        <>
-                          <p className="font-mono text-xs text-primary uppercase tracking-widest">{selectedFile.name}</p>
-                          <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Click to change</p>
-                        </>
-                      ) : (
-                        <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Drag file here or click to browse</p>
-                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setSelectedFiles([]); }}
+                        className="font-mono text-xs text-zinc-500 hover:text-white uppercase tracking-widest"
+                      >
+                        Clear All
+                      </button>
                     </div>
-                </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-zinc-800/50 border border-zinc-700">
+                          <span className="font-mono text-xs text-zinc-300 truncate max-w-[280px]">{file.name}</span>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                            className="text-zinc-500 hover:text-red-400 text-xs font-mono uppercase"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest text-center">Click to add more files</p>
+                  </div>
+                ) : (
+                  <div className="relative z-10 flex flex-col items-center gap-6 transition-transform duration-500 group-hover:scale-105">
+                     <div className={`w-24 h-24 border-2 border-dashed flex items-center justify-center rounded-none transition-all ${
+                       isDragging
+                         ? "border-white bg-white/10"
+                         : "border-zinc-700 group-hover:border-white group-hover:bg-white/5"
+                     }`}>
+                        <UploadCloud className={`w-10 h-10 transition-colors ${
+                          isDragging
+                            ? "text-white"
+                            : "text-zinc-500 group-hover:text-white"
+                        }`} />
+                     </div>
+                     <div className="text-center space-y-2">
+                        <h3 className="font-display text-2xl font-bold text-white uppercase">Drop Zone</h3>
+                        <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Drag files here or click to browse</p>
+                        <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest">Select multiple photos or videos</p>
+                      </div>
+                  </div>
+                )}
              </div>
              <div className="p-8 space-y-6">
                 <div className="space-y-4">
@@ -289,11 +339,11 @@ export default function Library() {
         isOpen={isCaptionGenOpen} 
         onClose={() => {
           setIsCaptionGenOpen(false);
-          setSelectedFile(null);
+          setSelectedFiles([]);
           setSelectedCategory("General");
         }}
         onSelect={handleCaptionSelect}
-        file={selectedFile}
+        files={selectedFiles}
         category={selectedCategory}
       />
 
