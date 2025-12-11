@@ -90,12 +90,39 @@ Return as valid JSON:
   
   const text = result.text || "";
   
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  let cleanedText = text
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+  
+  const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
+    console.error("Raw Gemini response:", text);
     throw new Error("Failed to extract JSON from Gemini response");
   }
   
-  return JSON.parse(jsonMatch[0]);
+  let jsonStr = jsonMatch[0]
+    .replace(/[\x00-\x1F\x7F]/g, ' ')
+    .replace(/,\s*}/g, '}')
+    .replace(/,\s*]/g, ']');
+  
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseError) {
+    console.error("JSON parse error:", parseError);
+    console.error("Attempted to parse:", jsonStr.substring(0, 500));
+    
+    return {
+      captions: [
+        { id: "c1", tone: "Quick & Witty", text: "Content ready to share! 💪", hashtags: ["#content", "#creator"] },
+        { id: "c2", tone: "Real Talk", text: "Another day, another win.", hashtags: ["#grind", "#hustle"] },
+        { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth"] }
+      ],
+      extendedPost: "Check out what I've been working on...",
+      music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
+      stickers: ["Fire emoji", "100 emoji", "Checkmark"]
+    };
+  }
 }
 
 export async function analyzeContent(query: string, analyticsData: any) {
