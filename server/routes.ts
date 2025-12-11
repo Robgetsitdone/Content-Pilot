@@ -104,6 +104,111 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard KPIs
+  app.get("/api/dashboard/kpis", async (req, res) => {
+    try {
+      const videos = await storage.getVideos();
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const lastWeekStart = new Date(startOfWeek);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      
+      // Filter by time periods
+      const thisWeekPosts = videos.filter(v => 
+        v.status === "posted" && v.publishedDate && new Date(v.publishedDate) >= startOfWeek
+      );
+      const lastWeekPosts = videos.filter(v => 
+        v.status === "posted" && v.publishedDate && 
+        new Date(v.publishedDate) >= lastWeekStart && new Date(v.publishedDate) < startOfWeek
+      );
+      
+      // Output metrics
+      const postsThisWeek = thisWeekPosts.length;
+      const postsLastWeek = lastWeekPosts.length;
+      const postsWoW = postsLastWeek > 0 ? Math.round(((postsThisWeek - postsLastWeek) / postsLastWeek) * 100) : 0;
+      
+      // Breakdown by post type
+      const reelsPublished = thisWeekPosts.filter(v => v.postType === "reel").length;
+      const storiesPosted = thisWeekPosts.filter(v => v.postType === "story").length;
+      const shortsPublished = thisWeekPosts.filter(v => v.postType === "short").length;
+      const feedPosts = thisWeekPosts.filter(v => v.postType === "post").length;
+      
+      // Pipeline metrics
+      const scheduled = videos.filter(v => v.status === "scheduled");
+      const drafts = videos.filter(v => v.status === "draft");
+      const processing = videos.filter(v => v.status === "processing");
+      
+      const next7Days = new Date(now);
+      next7Days.setDate(next7Days.getDate() + 7);
+      const next30Days = new Date(now);
+      next30Days.setDate(next30Days.getDate() + 30);
+      
+      const scheduledNext7 = scheduled.filter(v => 
+        v.scheduledDate && new Date(v.scheduledDate) <= next7Days
+      ).length;
+      const scheduledNext30 = scheduled.filter(v => 
+        v.scheduledDate && new Date(v.scheduledDate) <= next30Days
+      ).length;
+      
+      // Consistency score: planned vs published
+      const plannedThisWeek = videos.filter(v => 
+        v.scheduledDate && 
+        new Date(v.scheduledDate) >= startOfWeek && 
+        new Date(v.scheduledDate) <= now
+      ).length;
+      const consistencyScore = plannedThisWeek > 0 
+        ? Math.round((postsThisWeek / plannedThisWeek) * 100) 
+        : postsThisWeek > 0 ? 100 : 0;
+      
+      // Engagement metrics (from posted content)
+      const postedVideos = videos.filter(v => v.status === "posted");
+      const totalEngagement = postedVideos.reduce((sum, v) => 
+        sum + (v.likes || 0) + (v.comments || 0) + (v.shares || 0) + (v.saves || 0), 0
+      );
+      const totalReach = postedVideos.reduce((sum, v) => sum + (v.reach || 0), 0);
+      const totalShares = postedVideos.reduce((sum, v) => sum + (v.shares || 0), 0);
+      const totalSaves = postedVideos.reduce((sum, v) => sum + (v.saves || 0), 0);
+      const engagementRate = totalReach > 0 ? ((totalEngagement / totalReach) * 100).toFixed(1) : "0";
+      
+      res.json({
+        output: {
+          postsThisWeek,
+          postsWoW,
+          reelsPublished,
+          storiesPosted,
+          shortsPublished,
+          feedPosts,
+          consistencyScore,
+        },
+        pipeline: {
+          scheduledNext7,
+          scheduledNext30,
+          draftsCount: drafts.length,
+          processingCount: processing.length,
+          totalScheduled: scheduled.length,
+        },
+        impact: {
+          totalEngagement,
+          engagementRate,
+          totalShares,
+          totalSaves,
+          totalReach,
+        },
+        queues: {
+          scheduled: scheduled.slice(0, 5),
+          drafts: drafts.slice(0, 5),
+          processing: processing.slice(0, 3),
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard KPIs:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard KPIs" });
+    }
+  });
+
   // Strategy Settings Routes
   app.get("/api/strategy", async (req, res) => {
     try {
