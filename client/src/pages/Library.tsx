@@ -4,67 +4,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Plus, Wand2, UploadCloud } from "lucide-react";
+import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import generatedImage from '@assets/generated_images/abstract_dark_data_flow_background_with_subtle_grid_and_violet_accents.png';
 
 const StatusBadge = ({ status }: { status: VideoStatus }) => {
   const styles = {
-    posted: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    draft: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-    processing: "bg-purple-500/10 text-purple-400 border-purple-500/20 animate-pulse",
+    posted: "bg-white text-black border-white",
+    scheduled: "bg-zinc-800 text-zinc-300 border-zinc-700",
+    draft: "border-zinc-800 text-zinc-500",
+    processing: "bg-zinc-900 text-zinc-400 border-zinc-800 animate-pulse",
   };
 
   return (
-    <Badge variant="outline" className={`${styles[status]} capitalize border`}>
+    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border ${styles[status]}`}>
       {status}
-    </Badge>
+    </span>
   );
 };
 
 const VideoCard = ({ video }: { video: any }) => (
-  <div className="group relative overflow-hidden rounded-xl border border-white/5 bg-card hover:border-primary/50 transition-all duration-300">
-    <div className={`aspect-video w-full ${video.thumbnail} relative`}>
-      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-      <div className="absolute top-2 right-2">
+  <div className="group relative bg-black border border-zinc-900 hover:border-zinc-700 transition-all duration-300 flex flex-col h-full">
+    <div className={`aspect-video w-full ${video.thumbnail} relative grayscale group-hover:grayscale-0 transition-all duration-500 overflow-hidden`}>
+      <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-all duration-500" />
+      
+      {/* Play Button Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="w-12 h-12 bg-white flex items-center justify-center rounded-full transform scale-90 group-hover:scale-100 transition-transform">
+          <Play className="w-5 h-5 text-black ml-1" fill="currentColor" />
+        </div>
+      </div>
+
+      <div className="absolute top-3 left-3">
         <StatusBadge status={video.status} />
       </div>
+      
       {video.status === 'processing' && (
-        <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm bg-black/40">
-           <div className="flex flex-col items-center gap-2">
-             <Wand2 className="w-8 h-8 text-primary animate-spin-slow" />
-             <span className="text-xs font-medium text-white">AI Processing...</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-10">
+           <div className="flex flex-col items-center gap-3">
+             <Wand2 className="w-6 h-6 text-white animate-spin-slow" />
+             <span className="font-mono text-xs text-zinc-400 uppercase tracking-widest">AI Processing</span>
            </div>
         </div>
       )}
     </div>
     
-    <div className="p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+    <div className="p-5 flex flex-col flex-1 gap-4">
+      <div className="flex justify-between items-start gap-2">
+        <h3 className="font-display text-lg font-bold leading-tight text-zinc-300 group-hover:text-white transition-colors">
           {video.title}
         </h3>
+        <button className="text-zinc-600 hover:text-white transition-colors">
+          <MoreHorizontal className="w-5 h-5" />
+        </button>
       </div>
       
-      <div className="space-y-2">
+      <div className="mt-auto space-y-4">
         <div className="flex flex-wrap gap-2">
-           <Badge variant="secondary" className="text-[10px] bg-secondary/50 text-muted-foreground hover:bg-secondary">
+           <span className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider border border-zinc-800 text-zinc-500 group-hover:border-zinc-600 group-hover:text-zinc-400 transition-colors">
              {video.category}
-           </Badge>
+           </span>
         </div>
         
-        {video.caption && (
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {video.caption}
-          </p>
-        )}
-      </div>
-
-      <div className="pt-2 flex gap-2">
-         <Button size="sm" variant="outline" className="w-full text-xs h-8">Edit</Button>
-         <Button size="sm" className="w-full text-xs h-8 bg-primary/90 hover:bg-primary">Schedule</Button>
+        <div className="grid grid-cols-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+           <Button size="sm" variant="outline" className="h-9 rounded-none border-zinc-700 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider">
+             Edit
+           </Button>
+           <Button size="sm" className="h-9 rounded-none bg-zinc-800 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider">
+             Schedule
+           </Button>
+        </div>
       </div>
     </div>
   </div>
@@ -80,76 +90,92 @@ export default function Library() {
 
   return (
     <Layout>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight">Content Library</h1>
-          <p className="text-muted-foreground">Manage, caption, and schedule your media assets.</p>
+          <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-none mb-4">
+            Library
+          </h1>
+          <p className="font-mono text-zinc-500 uppercase tracking-widest text-sm">
+            Asset Management & Processing // {filteredVideos.length} Items
+          </p>
         </div>
         
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Content
+            <Button className="h-12 px-8 rounded-none bg-white text-black hover:bg-zinc-200 font-display font-bold text-lg tracking-tight">
+              <Plus className="w-5 h-5 mr-2" />
+              UPLOAD ASSET
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-xl bg-card border-white/10 p-0 overflow-hidden">
-             <div className="relative h-64 w-full bg-black flex flex-col items-center justify-center border-b border-white/10 group cursor-pointer overflow-hidden">
-                <img 
-                  src={generatedImage}
-                  className="absolute inset-0 opacity-30 object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" 
-                  alt="Upload background"
-                />
-                <div className="relative z-10 flex flex-col items-center gap-4">
-                   <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50 group-hover:scale-110 transition-transform">
-                      <UploadCloud className="w-8 h-8 text-primary" />
+          <DialogContent className="sm:max-w-xl bg-[#0a0a0a] border border-white/10 p-0 gap-0">
+             <div className="relative h-80 w-full bg-zinc-900 flex flex-col items-center justify-center group cursor-pointer overflow-hidden border-b border-white/10">
+                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_25%,rgba(255,255,255,0.05)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.05)_75%,rgba(255,255,255,0.05)_100%)] bg-[length:24px_24px] opacity-20" />
+                
+                <div className="relative z-10 flex flex-col items-center gap-6 transition-transform duration-500 group-hover:scale-105">
+                   <div className="w-24 h-24 border-2 border-dashed border-zinc-700 flex items-center justify-center rounded-none group-hover:border-white group-hover:bg-white/5 transition-all">
+                      <UploadCloud className="w-10 h-10 text-zinc-500 group-hover:text-white transition-colors" />
                    </div>
-                   <div className="text-center space-y-1">
-                      <h3 className="text-lg font-semibold text-white">Drag & drop videos here</h3>
-                      <p className="text-sm text-zinc-400">or click to browse from Google Drive</p>
+                   <div className="text-center space-y-2">
+                      <h3 className="font-display text-2xl font-bold text-white uppercase">Drop Zone</h3>
+                      <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">or click to browse</p>
                    </div>
                 </div>
              </div>
-             <div className="p-6 space-y-4">
-                <div className="space-y-2">
-                   <h4 className="text-sm font-medium text-white">Processing Options</h4>
-                   <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-lg border border-white/10 bg-secondary/20 hover:bg-secondary/40 cursor-pointer transition-colors">
-                         <div className="flex items-center gap-2 mb-1">
-                            <Wand2 className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">Auto-Caption</span>
+             <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                   <h4 className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Processing Intelligence</h4>
+                   <div className="grid grid-cols-2 gap-4">
+                      <button className="flex items-center gap-3 p-4 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-600 transition-all text-left">
+                         <div className="p-2 bg-black border border-zinc-800">
+                           <Wand2 className="w-4 h-4 text-white" />
                          </div>
-                         <p className="text-xs text-muted-foreground">Generate captions with AI</p>
-                      </div>
-                      <div className="p-3 rounded-lg border border-white/10 bg-secondary/20 hover:bg-secondary/40 cursor-pointer transition-colors">
-                         <Filter className="w-4 h-4 text-blue-400" />
-                         <span className="text-sm font-medium">Auto-Tag</span>
-                         <p className="text-xs text-muted-foreground">Categorize based on content</p>
-                      </div>
+                         <div>
+                           <div className="font-bold text-white text-sm">Auto-Caption</div>
+                           <div className="text-[10px] text-zinc-500 uppercase">AI Generated</div>
+                         </div>
+                      </button>
+                      <button className="flex items-center gap-3 p-4 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-600 transition-all text-left">
+                         <div className="p-2 bg-black border border-zinc-800">
+                           <Search className="w-4 h-4 text-white" />
+                         </div>
+                         <div>
+                           <div className="font-bold text-white text-sm">Smart Tag</div>
+                           <div className="text-[10px] text-zinc-500 uppercase">Auto-Categorize</div>
+                         </div>
+                      </button>
                    </div>
                 </div>
-                <Button className="w-full bg-primary" onClick={() => setIsUploadOpen(false)}>Start Upload</Button>
+                <Button className="w-full h-12 rounded-none bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-wide">
+                  Initialize Upload
+                </Button>
              </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search videos..." 
-            className="pl-9 bg-secondary/50 border-white/5 focus-visible:ring-primary" 
-          />
+      <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl border-b border-white/10 pb-6 mb-8 pt-2">
+        <div className="flex flex-col md:flex-row gap-6 items-center">
+          <div className="relative flex-1 w-full group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-white transition-colors" />
+            <Input 
+              placeholder="SEARCH ASSETS..." 
+              className="pl-12 h-12 bg-zinc-900/50 border-zinc-800 focus:border-white rounded-none font-mono text-sm uppercase tracking-wider placeholder:text-zinc-700" 
+            />
+          </div>
+          <Tabs defaultValue="all" className="w-full md:w-auto" onValueChange={setFilter}>
+            <TabsList className="bg-zinc-900/50 border border-zinc-800 h-12 p-1 rounded-none w-full md:w-auto">
+              {['all', 'posted', 'scheduled', 'draft'].map((tab) => (
+                <TabsTrigger 
+                  key={tab} 
+                  value={tab}
+                  className="rounded-none h-full px-6 font-mono text-xs uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-black transition-all"
+                >
+                  {tab}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
-        <Tabs defaultValue="all" className="w-full md:w-auto" onValueChange={setFilter}>
-          <TabsList className="bg-secondary/50 border border-white/5">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="posted">Posted</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-            <TabsTrigger value="draft">Drafts</TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

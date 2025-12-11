@@ -5,11 +5,11 @@
 
 @theme inline {
   --font-sans: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --font-display: 'Space Grotesk', sans-serif;
+  
+  --radius-sm: 0px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -41,70 +41,90 @@
 }
 
 :root {
-  /* Dark Theme Default */
-  --background: 240 10% 3.9%;
+  /* Ultra Dark, Heavy Theme */
+  --background: 240 5% 3%;     /* Almost pure black */
   --foreground: 0 0% 98%;
 
-  --card: 240 10% 5.9%; /* Slightly lighter than background */
+  --card: 240 4% 5%;           /* Very dark grey */
   --card-foreground: 0 0% 98%;
 
-  --popover: 240 10% 3.9%;
+  --popover: 240 4% 5%;
   --popover-foreground: 0 0% 98%;
 
-  --primary: 266 100% 64%; /* Vivid Violet */
-  --primary-foreground: 210 40% 98%;
+  --primary: 0 0% 98%;         /* White primary for stark contrast */
+  --primary-foreground: 240 5% 3%;
 
-  --secondary: 240 3.7% 15.9%;
+  --secondary: 240 3% 12%;
   --secondary-foreground: 0 0% 98%;
 
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
+  --muted: 240 3% 12%;
+  --muted-foreground: 240 5% 50%;
 
-  --accent: 240 3.7% 15.9%;
+  --accent: 240 3% 15%;
   --accent-foreground: 0 0% 98%;
 
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
+  --border: 240 3% 15%;
+  --input: 240 3% 15%;
   --ring: 240 4.9% 83.9%;
 
-  --radius: 0.5rem;
+  --radius: 0.25rem;
 }
 
-/* Force dark mode styles even without class since we're going for a dark UI */
 body {
-  @apply bg-background text-foreground font-sans antialiased;
+  @apply bg-background text-foreground font-sans antialiased selection:bg-white selection:text-black;
   background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
 }
 
-/* Custom Scrollbar */
+/* Custom Utilities for that "Heavy" look */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.heavy-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 0 0 rgba(0,0,0,0.5);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.heavy-card:hover {
+  border-color: hsl(var(--foreground) / 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 0 rgba(0,0,0,0.5);
+}
+
+.heavy-border {
+  border: 1px solid hsl(var(--border));
+}
+
+.noise-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Custom Scrollbar - Minimal */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background)); 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted)); 
-  border-radius: 4px;
+  background: hsl(var(--border));
+  border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground)); 
-}
-
-/* Utilities */
-.glass-panel {
-  background: rgba(18, 18, 23, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.text-gradient {
-  background: linear-gradient(to right, #c084fc, #6366f1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: hsl(var(--muted-foreground));
 }

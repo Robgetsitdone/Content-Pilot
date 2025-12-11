@@ -1,11 +1,11 @@
 import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { INITIAL_STRATEGY, CATEGORIES } from "@/lib/mockData";
 import { useState } from "react";
-import { BarChart, Activity, Zap } from "lucide-react";
+import { BarChart, Activity, Zap, Layers, Cpu } from "lucide-react";
 
 export default function Strategy() {
   const [weights, setWeights] = useState(INITIAL_STRATEGY.categoryWeights);
@@ -20,104 +20,98 @@ export default function Strategy() {
 
   return (
     <Layout>
-       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight">Strategy Configuration</h1>
-        <p className="text-muted-foreground">Fine-tune your content drip and distribution algorithms.</p>
+       <div className="flex flex-col gap-4 mb-16">
+        <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-none">
+          Strategy<br/><span className="text-zinc-800">Engine</span>
+        </h1>
+        <p className="font-mono text-zinc-500 uppercase tracking-widest text-sm max-w-2xl">
+          Configure distribution algorithms and weight parameters for optimal audience engagement.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="glass-panel border-white/5">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <BarChart className="w-5 h-5 text-primary" />
-                <CardTitle>Category Weighting</CardTitle>
-              </div>
-              <CardDescription>
-                Adjust how often each topic appears in your feed. Higher weight = higher frequency.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div className="lg:col-span-8 space-y-12">
+          <div className="space-y-8">
+             <div className="flex items-center gap-4 border-b border-white/10 pb-4">
+                <Layers className="w-6 h-6 text-white" />
+                <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Category Weights</h3>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
               {CATEGORIES.map((category) => (
-                <div key={category} className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-base font-medium">{category}</Label>
-                    <span className="font-mono text-sm text-muted-foreground">
+                <div key={category} className="space-y-4 group">
+                  <div className="flex justify-between items-end">
+                    <Label className="font-display text-lg font-bold uppercase tracking-tight text-zinc-400 group-hover:text-white transition-colors">{category}</Label>
+                    <span className="font-mono text-xs text-zinc-500 bg-zinc-900 px-2 py-1 border border-zinc-800">
                       {weights[category] || 0}%
                     </span>
                   </div>
-                  <Slider
-                    value={[weights[category] || 0]}
-                    max={100}
-                    step={5}
-                    onValueChange={(val) => handleWeightChange(category, val)}
-                    className="[&>.relative>.bg-primary]:bg-gradient-to-r [&>.relative>.bg-primary]:from-indigo-500 [&>.relative>.bg-primary]:to-purple-500"
-                  />
+                  <div className="relative pt-2">
+                    <Slider
+                      value={[weights[category] || 0]}
+                      max={100}
+                      step={5}
+                      onValueChange={(val) => handleWeightChange(category, val)}
+                      className="[&>.relative>.bg-primary]:bg-white [&>.relative]:h-1 [&>span]:h-4 [&>span]:w-4 [&>span]:border-2 [&>span]:border-white [&>span]:bg-black [&>span]:rounded-none"
+                    />
+                  </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+             </div>
+          </div>
         </div>
 
-        <div className="space-y-6">
-           <Card className="glass-panel border-white/5">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-400" />
-                <CardTitle>Drip Frequency</CardTitle>
+        <div className="lg:col-span-4 space-y-8">
+           <div className="heavy-card p-6 bg-zinc-900/20 border-white/10">
+            <div className="flex items-center gap-3 mb-6">
+              <Zap className="w-5 h-5 text-white" />
+              <h3 className="font-display text-xl font-bold uppercase">Velocity</h3>
+            </div>
+            
+            <div className="space-y-8">
+              <div className="text-center py-8 border border-zinc-800 bg-black/50">
+                <span className="text-7xl font-display font-bold text-white tracking-tighter">{frequency}</span>
+                <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest mt-2">Posts / Week</p>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center py-4">
-                <span className="text-5xl font-bold font-mono text-white">{frequency}</span>
-                <p className="text-sm text-muted-foreground mt-2">Posts per week</p>
-              </div>
+              
               <Slider
                 value={frequency}
                 min={1}
                 max={21}
                 step={1}
                 onValueChange={setFrequency}
+                className="[&>.relative>.bg-primary]:bg-white [&>.relative]:h-1 [&>span]:h-4 [&>span]:w-4 [&>span]:border-2 [&>span]:border-white [&>span]:bg-black [&>span]:rounded-none"
               />
-              <p className="text-xs text-muted-foreground text-center">
-                Estimated daily volume: ~{Math.round(frequency[0] / 7 * 10) / 10} posts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-panel border-white/5">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-emerald-400" />
-                <CardTitle>Smart Rules</CardTitle>
+              
+              <div className="flex justify-between text-xs font-mono text-zinc-500 uppercase border-t border-zinc-800 pt-4">
+                 <span>Daily Avg</span>
+                 <span className="text-white">~{Math.round(frequency[0] / 7 * 10) / 10}</span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-               <div className="flex items-center justify-between">
-                 <div className="space-y-0.5">
-                   <Label>Avoid Repetition</Label>
-                   <p className="text-xs text-muted-foreground">Don't post same category twice in a row</p>
-                 </div>
-                 <Switch defaultChecked />
-               </div>
-               
-               <div className="flex items-center justify-between">
-                 <div className="space-y-0.5">
-                   <Label>Weekend Light Mode</Label>
-                   <p className="text-xs text-muted-foreground">Reduce frequency on Sat/Sun</p>
-                 </div>
-                 <Switch defaultChecked />
-               </div>
+            </div>
+          </div>
 
-               <div className="flex items-center justify-between">
-                 <div className="space-y-0.5">
-                   <Label>Auto-Recycle</Label>
-                   <p className="text-xs text-muted-foreground">Re-queue top performers after 90 days</p>
+          <div className="heavy-card p-6 bg-zinc-900/20 border-white/10">
+            <div className="flex items-center gap-3 mb-6">
+              <Cpu className="w-5 h-5 text-white" />
+              <h3 className="font-display text-xl font-bold uppercase">Logic Gates</h3>
+            </div>
+            
+            <div className="space-y-6">
+               {[
+                 { label: "Anti-Repetition", desc: "Prevent consecutive topic posts" },
+                 { label: "Weekend Mode", desc: "Reduce frequency Sat/Sun" },
+                 { label: "Auto-Recycle", desc: "Re-queue top performers > 90d" }
+               ].map((item, i) => (
+                 <div key={i} className="flex items-center justify-between group">
+                   <div className="space-y-1">
+                     <Label className="font-bold text-zinc-300 group-hover:text-white transition-colors">{item.label}</Label>
+                     <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-mono">{item.desc}</p>
+                   </div>
+                   <Switch className="data-[state=checked]:bg-white data-[state=unchecked]:bg-zinc-800 border border-zinc-700" />
                  </div>
-                 <Switch />
-               </div>
-            </CardContent>
-          </Card>
+               ))}
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
