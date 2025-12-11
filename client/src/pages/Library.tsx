@@ -1,14 +1,15 @@
 import { Layout } from "@/components/Layout";
-import { MOCK_VIDEOS, VideoStatus } from "@/lib/mockData";
+import { type VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import generatedImage from '@assets/generated_images/abstract_dark_data_flow_background_with_subtle_grid_and_violet_accents.png';
 import { CaptionGenerator } from "@/components/CaptionGenerator";
 import { useToast } from "@/hooks/use-toast";
+import { useVideos, useCreateVideo } from "@/hooks/useVideos";
+import type { Video } from "@shared/schema";
 
 const StatusBadge = ({ status }: { status: VideoStatus }) => {
   const styles = {
@@ -25,7 +26,7 @@ const StatusBadge = ({ status }: { status: VideoStatus }) => {
   );
 };
 
-const VideoCard = ({ video }: { video: any }) => (
+const VideoCard = ({ video }: { video: Video }) => (
   <div className="group relative bg-black border border-zinc-900 hover:border-zinc-700 transition-all duration-300 flex flex-col h-full">
     <div className={`aspect-video w-full ${video.thumbnail} relative grayscale group-hover:grayscale-0 transition-all duration-500 overflow-hidden`}>
       <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-all duration-500" />
@@ -86,8 +87,11 @@ export default function Library() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isCaptionGenOpen, setIsCaptionGenOpen] = useState(false);
   const { toast } = useToast();
+  
+  const { data: videos = [], isLoading } = useVideos();
+  const createVideo = useCreateVideo();
 
-  const filteredVideos = MOCK_VIDEOS.filter(v => 
+  const filteredVideos = videos.filter(v => 
     filter === "all" ? true : v.status === filter
   );
 
@@ -96,13 +100,32 @@ export default function Library() {
     setIsCaptionGenOpen(true);
   };
 
-  const handleCaptionSelect = (caption: string) => {
-    toast({
-      title: "Strategy Applied",
-      description: "Asset has been updated with AI-generated caption and scheduled.",
-      duration: 3000,
-    });
-    // In a real app, this would update the video data
+  const handleCaptionSelect = async (caption: string, aiData: any) => {
+    try {
+      await createVideo.mutateAsync({
+        title: "New Video Upload",
+        thumbnail: "bg-zinc-900",
+        category: "General",
+        status: "draft",
+        caption,
+        aiData,
+        views: 0,
+        scheduledDate: null,
+      });
+      
+      toast({
+        title: "Strategy Applied",
+        description: "Asset has been created with AI-generated caption.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create video",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   return (
@@ -113,7 +136,7 @@ export default function Library() {
             Library
           </h1>
           <p className="font-mono text-zinc-500 uppercase tracking-widest text-sm">
-            Asset Management & Processing // {filteredVideos.length} Items
+            Asset Management & Processing // {isLoading ? "Loading..." : `${filteredVideos.length} Items`}
           </p>
         </div>
         
@@ -205,9 +228,19 @@ export default function Library() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredVideos.map((video) => (
-          <VideoCard key={video.id} video={video} />
-        ))}
+        {isLoading ? (
+          <div className="col-span-full text-center py-12">
+            <p className="font-mono text-zinc-500 uppercase tracking-widest text-sm">Loading assets...</p>
+          </div>
+        ) : filteredVideos.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <p className="font-mono text-zinc-500 uppercase tracking-widest text-sm">No assets found</p>
+          </div>
+        ) : (
+          filteredVideos.map((video) => (
+            <VideoCard key={video.id} video={video} />
+          ))
+        )}
       </div>
     </Layout>
   );
