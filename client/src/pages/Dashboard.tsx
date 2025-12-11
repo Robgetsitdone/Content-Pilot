@@ -1,6 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { 
   ArrowUpRight, 
   ArrowDownRight,
@@ -17,11 +18,19 @@ import {
   Zap,
   Target,
   FileVideo,
-  Play
+  Play,
+  Lightbulb,
+  RefreshCw,
+  Flame
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { useState } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { Video } from "@shared/schema";
+import { POST_IDEAS, SOCIAL_TRENDS } from "@/lib/mockData";
+
+const COLORS = ['#ffffff', '#a1a1aa', '#52525b', '#27272a', '#18181b'];
 
 interface DashboardKPIs {
   output: {
@@ -189,6 +198,30 @@ const QueueItem = ({ video }: { video: Video }) => (
 
 export default function Dashboard() {
   const { data: kpis, isLoading } = useDashboardKPIs();
+  
+  const [mixData, setMixData] = useState([
+    { name: 'Business', value: 400 },
+    { name: 'Family', value: 300 },
+    { name: 'Fitness', value: 300 },
+    { name: 'Travel', value: 200 },
+    { name: 'Tech', value: 150 },
+  ]);
+
+  const handleResetMix = () => {
+    setMixData([
+      { name: 'Business', value: 20 },
+      { name: 'Family', value: 20 },
+      { name: 'Fitness', value: 20 },
+      { name: 'Travel', value: 20 },
+      { name: 'Tech', value: 20 },
+    ]);
+  };
+
+  const handleSliceClick = (index: number) => {
+    const newData = [...mixData];
+    newData[index].value += 50;
+    setMixData(newData);
+  };
 
   if (isLoading) {
     return (
@@ -384,6 +417,127 @@ export default function Dashboard() {
                   <span className="font-mono text-xs text-zinc-600 uppercase">No items processing</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOURTH ROW - Ideas & Inspiration */}
+      <section className="mt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Left Column: Mix & Trends */}
+          <div className="lg:col-span-4 flex flex-col gap-12">
+            {/* Mix Distribution */}
+            <div className="flex flex-col gap-8">
+              <div className="flex items-end justify-between border-b border-white/10 pb-4">
+                <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Mix Control</h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleResetMix}
+                  className="text-xs font-mono uppercase hover:bg-white hover:text-black h-6"
+                  data-testid="button-reset-mix"
+                >
+                  <RefreshCw className="w-3 h-3 mr-2" />
+                  Reset
+                </Button>
+              </div>
+              <div className="h-[300px] w-full relative group">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={mixData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={4}
+                      dataKey="value"
+                      stroke="none"
+                      onClick={(_, index) => handleSliceClick(index)}
+                      className="cursor-pointer outline-none"
+                    >
+                      {mixData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]} 
+                          className="hover:opacity-80 transition-opacity outline-none"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff', borderRadius: '0px', fontFamily: 'monospace' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-center group-hover:scale-110 transition-transform">
+                    <span className="block font-display text-3xl font-bold">Mix</span>
+                    <span className="block font-mono text-[10px] text-zinc-500 uppercase">Interactive</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {mixData.map((entry, index) => (
+                  <div 
+                    key={entry.name} 
+                    className="flex items-center gap-2 px-3 py-1 border border-zinc-800 hover:border-zinc-600 transition-colors cursor-pointer"
+                    onClick={() => handleSliceClick(index)}
+                    data-testid={`mix-category-${entry.name.toLowerCase()}`}
+                  >
+                    <div className="w-2 h-2" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                    <span className="font-mono text-xs text-zinc-400 uppercase tracking-wider">{entry.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trending Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <Flame className="w-5 h-5 text-white" />
+                <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Trending Now</h3>
+              </div>
+              <div className="space-y-3">
+                {SOCIAL_TRENDS.map((trend) => (
+                  <div key={trend.id} className="p-4 border border-zinc-900 bg-zinc-900/20 hover:border-zinc-700 transition-colors" data-testid={`trend-${trend.id}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-bold text-white">{trend.tag}</span>
+                      <span className="text-emerald-500 text-xs font-mono">{trend.growth}</span>
+                    </div>
+                    <span className="text-xs text-zinc-500 font-mono uppercase">{trend.volume}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Post Ideas */}
+          <div className="lg:col-span-8 flex flex-col gap-12">
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <Lightbulb className="w-5 h-5 text-white" />
+                <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Personalized Ideas</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {POST_IDEAS.map((idea) => (
+                  <div key={idea.id} className="p-6 border border-zinc-800 bg-black hover:bg-zinc-900 hover:border-zinc-600 transition-all cursor-pointer group" data-testid={`idea-${idea.id}`}>
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-[10px] font-mono uppercase border border-zinc-800 px-2 py-0.5 text-zinc-500">
+                        {idea.difficulty}
+                      </span>
+                      <ArrowUpRight className="w-4 h-4 text-zinc-700 group-hover:text-white transition-colors" />
+                    </div>
+                    <h4 className="font-display text-lg font-bold text-zinc-200 group-hover:text-white mb-2 leading-tight">
+                      {idea.title}
+                    </h4>
+                    <p className="text-xs text-zinc-500 font-mono">
+                      Why: {idea.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
