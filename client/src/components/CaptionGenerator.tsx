@@ -89,7 +89,7 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], catego
     }
   };
 
-  const handleSelect = () => {
+  const handleSelect = async () => {
     if (selectedCaptionId && aiResponse) {
       const caption = aiResponse.captions.find(c => c.id === selectedCaptionId);
       if (caption) {
@@ -98,8 +98,15 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], catego
         
         if (files.length > 0) {
           const file = files[0];
-          mediaPreviewUrl = URL.createObjectURL(file);
           mediaType = file.type.startsWith("video/") ? "video" : "image";
+          
+          if (mediaType === "image") {
+            mediaPreviewUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+          }
         }
         
         onSelect({

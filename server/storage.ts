@@ -27,14 +27,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVideo(video: InsertVideo): Promise<Video> {
-    const result = await db.insert(videos).values(video).returning();
+    const result = await db.insert(videos).values(video as any).returning();
     return result[0];
   }
 
   async updateVideo(id: number, video: Partial<InsertVideo>): Promise<Video | undefined> {
     const result = await db
       .update(videos)
-      .set({ ...video, updatedAt: new Date() })
+      .set({ ...video, updatedAt: new Date() } as any)
       .where(eq(videos.id, id))
       .returning();
     return result[0];
