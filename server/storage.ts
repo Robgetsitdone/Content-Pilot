@@ -1,6 +1,6 @@
 import { db } from "../db/index";
-import { videos, strategySettings, type Video, type InsertVideo, type StrategySettings, type InsertStrategySettings } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { videos, strategySettings, instagramSettings, type Video, type InsertVideo, type StrategySettings, type InsertStrategySettings, type InstagramSettings, type InsertInstagramSettings } from "@shared/schema";
+import { eq, desc, lte, and } from "drizzle-orm";
 
 export interface IStorage {
   // Videos
@@ -9,10 +9,15 @@ export interface IStorage {
   createVideo(video: InsertVideo): Promise<Video>;
   updateVideo(id: number, video: Partial<InsertVideo>): Promise<Video | undefined>;
   deleteVideo(id: number): Promise<void>;
+  getScheduledPostsReady(): Promise<Video[]>;
   
   // Strategy Settings
   getStrategySettings(): Promise<StrategySettings | undefined>;
   upsertStrategySettings(settings: InsertStrategySettings): Promise<StrategySettings>;
+  
+  // Instagram Settings
+  getInstagramSettings(): Promise<InstagramSettings | undefined>;
+  upsertInstagramSettings(settings: InsertInstagramSettings): Promise<InstagramSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -62,6 +67,38 @@ export class DatabaseStorage implements IStorage {
       return result[0];
     } else {
       const result = await db.insert(strategySettings).values(settings).returning();
+      return result[0];
+    }
+  }
+
+  async getScheduledPostsReady(): Promise<Video[]> {
+    const now = new Date();
+    return db.select().from(videos).where(
+      and(
+        eq(videos.status, "scheduled"),
+        lte(videos.scheduledDate, now)
+      )
+    );
+  }
+
+  // Instagram Settings
+  async getInstagramSettings(): Promise<InstagramSettings | undefined> {
+    const result = await db.select().from(instagramSettings).limit(1);
+    return result[0];
+  }
+
+  async upsertInstagramSettings(settings: InsertInstagramSettings): Promise<InstagramSettings> {
+    const existing = await this.getInstagramSettings();
+    
+    if (existing) {
+      const result = await db
+        .update(instagramSettings)
+        .set({ ...settings, updatedAt: new Date() })
+        .where(eq(instagramSettings.id, existing.id))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.insert(instagramSettings).values(settings).returning();
       return result[0];
     }
   }

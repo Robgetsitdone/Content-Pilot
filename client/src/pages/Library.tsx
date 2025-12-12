@@ -3,12 +3,15 @@ import { type VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles } from "lucide-react";
+import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles, Bell, BellOff } from "lucide-react";
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CaptionGenerator } from "@/components/CaptionGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { useVideos, useCreateVideo } from "@/hooks/useVideos";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Switch } from "@/components/ui/switch";
 import type { Video } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -27,13 +30,19 @@ const StatusBadge = ({ status }: { status: VideoStatus }) => {
   );
 };
 
-const VideoDetailModal = ({ video, isOpen, onClose }: { video: Video | null; isOpen: boolean; onClose: () => void }) => {
+const VideoDetailModal = ({ video, isOpen, onClose, onNotifyToggle }: { 
+  video: Video | null; 
+  isOpen: boolean; 
+  onClose: () => void;
+  onNotifyToggle: (videoId: number, notifyMe: boolean) => void;
+}) => {
   if (!video) return null;
 
   const hasMedia = video.mediaUrl && video.mediaUrl !== "bg-zinc-900";
   const isImage = video.mediaType === "image";
   const music = video.aiData?.music || [];
   const stickers = video.aiData?.stickers || [];
+  const isPersonalCategory = video.category === "Family" || video.category === "Parenting";
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? 'block' : 'hidden'}`}>
@@ -114,6 +123,37 @@ const VideoDetailModal = ({ video, isOpen, onClose }: { video: Video | null; isO
 
           {/* AI Recommendations Section */}
           <div className="lg:w-1/3 space-y-4">
+            {/* Notify Me Toggle */}
+            {video.status === "scheduled" && (
+              <div className={`border p-4 ${isPersonalCategory ? 'border-amber-500/50 bg-amber-500/10' : 'border-zinc-800 bg-zinc-950/50'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {video.notifyMe ? (
+                      <Bell className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <BellOff className="w-4 h-4 text-zinc-500" />
+                    )}
+                    <div>
+                      <h3 className="font-display font-bold text-sm uppercase">Notify Me</h3>
+                      <p className="font-mono text-[10px] text-zinc-500">
+                        {isPersonalCategory ? "Recommended for personal posts" : "Get a calendar reminder"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch 
+                    checked={video.notifyMe || false}
+                    onCheckedChange={(checked) => onNotifyToggle(video.id, checked)}
+                    data-testid="switch-notify-me"
+                  />
+                </div>
+                {video.notifyMe && (
+                  <p className="font-mono text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800">
+                    You'll get a calendar reminder when this post goes live so you can engage with comments.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Music */}
             {music.length > 0 && (
               <div className="border border-zinc-800 bg-zinc-950/50 p-4">
@@ -318,6 +358,39 @@ export default function Library() {
   
   const { data: videos = [], isLoading } = useVideos();
   const createVideo = useCreateVideo();
+  const queryClient = useQueryClient();
+
+  const notifyMutation = useMutation({
+    mutationFn: async ({ videoId, notifyMe }: { videoId: number; notifyMe: boolean }) => {
+      return apiRequest("POST", `/api/videos/${videoId}/notify`, { notifyMe });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: notifyMutation.variables?.notifyMe ? "Reminder Set" : "Reminder Removed",
+        description: notifyMutation.variables?.notifyMe 
+          ? "You'll get a calendar notification when this post goes live." 
+          : "Calendar reminder has been removed.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings",
+        variant: "destructive",
+        duration: 3000,
+      });
+    },
+  });
+
+  const handleNotifyToggle = (videoId: number, notifyMe: boolean) => {
+    notifyMutation.mutate({ videoId, notifyMe });
+    // Update local state immediately for responsiveness
+    if (selectedVideo && selectedVideo.id === videoId) {
+      setSelectedVideo({ ...selectedVideo, notifyMe });
+    }
+  };
 
   const filteredVideos = videos.filter(v => 
     filter === "all" ? true : v.status === filter
@@ -455,6 +528,7 @@ export default function Library() {
           setIsDetailOpen(false);
           setSelectedVideo(null);
         }}
+        onNotifyToggle={handleNotifyToggle}
       />
 
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -40,7 +40,19 @@ export const videos = pgTable("videos", {
     music: string[];
     stickers: string[];
   }>(),
+  notifyMe: boolean("notify_me").default(false),
+  calendarEventId: text("calendar_event_id"),
+  instagramPostId: text("instagram_post_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const instagramSettings = pgTable("instagram_settings", {
+  id: serial("id").primaryKey(),
+  accessToken: text("access_token"),
+  igUserId: text("ig_user_id"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  isConnected: boolean("is_connected").default(false),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -67,9 +79,16 @@ export const insertStrategySettingsSchema = createInsertSchema(strategySettings)
   updatedAt: true,
 });
 
+export const insertInstagramSettingsSchema = createInsertSchema(instagramSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Video = typeof videos.$inferSelect;
 export type InsertVideo = z.infer<typeof insertVideoSchema>;
 export type StrategySettings = typeof strategySettings.$inferSelect;
 export type InsertStrategySettings = z.infer<typeof insertStrategySettingsSchema>;
+export type InstagramSettings = typeof instagramSettings.$inferSelect;
+export type InsertInstagramSettings = z.infer<typeof insertInstagramSettingsSchema>;

@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVideoSchema, insertStrategySettingsSchema } from "@shared/schema";
+import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema } from "@shared/schema";
 import { generateCaptions, analyzeContent } from "./gemini";
+import { createPostReminder, deletePostReminder } from "./googleCalendar";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -48,10 +49,46 @@ export async function registerRoutes(
   app.patch("/api/videos/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const video = await storage.updateVideo(id, req.body);
-      if (!video) {
+      const existingVideo = await storage.getVideo(id);
+      if (!existingVideo) {
         return res.status(404).json({ error: "Video not found" });
       }
+
+      const updateData = { ...req.body };
+
+      // Handle calendar reminder if notifyMe is enabled and scheduling
+      if (req.body.notifyMe === true && req.body.scheduledDate && req.body.status === "scheduled") {
+        try {
+          // Delete old calendar event if exists
+          if (existingVideo.calendarEventId) {
+            await deletePostReminder(existingVideo.calendarEventId);
+          }
+          // Create new calendar reminder
+          const eventId = await createPostReminder(
+            existingVideo.title,
+            existingVideo.category,
+            new Date(req.body.scheduledDate),
+            id
+          );
+          if (eventId) {
+            updateData.calendarEventId = eventId;
+          }
+        } catch (calError) {
+          console.error("Calendar reminder error:", calError);
+        }
+      }
+
+      // If turning off notifyMe, delete the calendar event
+      if (req.body.notifyMe === false && existingVideo.calendarEventId) {
+        try {
+          await deletePostReminder(existingVideo.calendarEventId);
+          updateData.calendarEventId = null;
+        } catch (calError) {
+          console.error("Calendar delete error:", calError);
+        }
+      }
+
+      const video = await storage.updateVideo(id, updateData);
       res.json(video);
     } catch (error) {
       console.error("Error updating video:", error);
@@ -315,6 +352,76 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error auto-scheduling:", error);
       res.status(500).json({ error: "Failed to auto-schedule content" });
+    }
+  });
+
+  // Instagram Settings
+  app.get("/api/instagram/settings", async (req, res) => {
+    try {
+      const settings = await storage.getInstagramSettings();
+      res.json(settings || { isConnected: false });
+    } catch (error) {
+      console.error("Error fetching Instagram settings:", error);
+      res.status(500).json({ error: "Failed to fetch Instagram settings" });
+    }
+  });
+
+  app.post("/api/instagram/settings", async (req, res) => {
+    try {
+      const settingsData = insertInstagramSettingsSchema.parse(req.body);
+      const settings = await storage.upsertInstagramSettings(settingsData);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error saving Instagram settings:", error);
+      res.status(400).json({ error: "Invalid Instagram settings" });
+    }
+  });
+
+  // Toggle notification endpoint
+  app.post("/api/videos/:id/notify", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { notifyMe } = req.body;
+      
+      const video = await storage.getVideo(id);
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+
+      const updateData: any = { notifyMe };
+
+      // Create or delete calendar reminder based on toggle
+      if (notifyMe && video.scheduledDate && video.status === "scheduled") {
+        try {
+          if (video.calendarEventId) {
+            await deletePostReminder(video.calendarEventId);
+          }
+          const eventId = await createPostReminder(
+            video.title,
+            video.category,
+            new Date(video.scheduledDate),
+            id
+          );
+          if (eventId) {
+            updateData.calendarEventId = eventId;
+          }
+        } catch (calError) {
+          console.error("Calendar reminder error:", calError);
+        }
+      } else if (!notifyMe && video.calendarEventId) {
+        try {
+          await deletePostReminder(video.calendarEventId);
+          updateData.calendarEventId = null;
+        } catch (calError) {
+          console.error("Calendar delete error:", calError);
+        }
+      }
+
+      const updatedVideo = await storage.updateVideo(id, updateData);
+      res.json(updatedVideo);
+    } catch (error) {
+      console.error("Error toggling notification:", error);
+      res.status(500).json({ error: "Failed to toggle notification" });
     }
   });
 
