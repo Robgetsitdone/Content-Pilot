@@ -231,5 +231,92 @@ export async function registerRoutes(
     }
   });
 
+  // Auto-schedule unscheduled content
+  app.post("/api/videos/auto-schedule", async (req, res) => {
+    try {
+      const videos = await storage.getVideos();
+      const unscheduledDrafts = videos.filter(v => v.status === "draft" && !v.scheduledDate);
+      
+      if (unscheduledDrafts.length === 0) {
+        return res.json({ message: "No unscheduled drafts to schedule", scheduled: 0 });
+      }
+
+      // Get strategy settings for optimal scheduling
+      const strategy = await storage.getStrategySettings();
+      const postsPerWeek = strategy?.dripFrequency || 5;
+
+      // Find existing scheduled slots (with hour granularity) to avoid conflicts
+      const scheduledVideos = videos.filter(v => v.status === "scheduled" && v.scheduledDate);
+      const occupiedSlots = new Set<string>();
+      scheduledVideos.forEach(v => {
+        const date = new Date(v.scheduledDate!);
+        const slotKey = `${date.toDateString()}-${date.getHours()}`;
+        occupiedSlots.add(slotKey);
+      });
+
+      // Best posting times (9am, 12pm, 5pm)
+      const postingHours = [9, 12, 17];
+      
+      // Start scheduling from tomorrow
+      const now = new Date();
+      let currentDate = new Date(now);
+      currentDate.setDate(currentDate.getDate() + 1);
+      let hourIndex = 0;
+      currentDate.setHours(postingHours[hourIndex], 0, 0, 0);
+
+      let scheduledCount = 0;
+
+      for (const draft of unscheduledDrafts) {
+        // Skip weekends for business content, allow for personal
+        while (
+          (draft.category === "Business" || draft.category === "Sales" || draft.category === "Software") &&
+          (currentDate.getDay() === 0 || currentDate.getDay() === 6)
+        ) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          hourIndex = 0;
+          currentDate.setHours(postingHours[hourIndex], 0, 0, 0);
+        }
+
+        // Find next available slot (checking date+hour granularity)
+        let slotKey = `${currentDate.toDateString()}-${postingHours[hourIndex]}`;
+        while (occupiedSlots.has(slotKey)) {
+          hourIndex++;
+          if (hourIndex >= postingHours.length) {
+            hourIndex = 0;
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          currentDate.setHours(postingHours[hourIndex], 0, 0, 0);
+          slotKey = `${currentDate.toDateString()}-${postingHours[hourIndex]}`;
+        }
+
+        // Schedule this draft
+        const scheduledDate = new Date(currentDate);
+        await storage.updateVideo(draft.id, {
+          scheduledDate,
+          status: "scheduled",
+        });
+
+        occupiedSlots.add(slotKey);
+        scheduledCount++;
+
+        // Move to next slot
+        hourIndex++;
+        if (hourIndex >= postingHours.length) {
+          hourIndex = 0;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        currentDate.setHours(postingHours[hourIndex], 0, 0, 0);
+      }
+
+      res.json({ 
+        message: `Successfully scheduled ${scheduledCount} posts`,
+        scheduled: scheduledCount 
+      });
+    } catch (error) {
+      console.error("Error auto-scheduling:", error);
+      res.status(500).json({ error: "Failed to auto-schedule content" });
+    }
+  });
+
   return httpServer;
 }

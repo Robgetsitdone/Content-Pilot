@@ -8,12 +8,14 @@ import Dashboard from "@/pages/Dashboard";
 import Library from "@/pages/Library";
 import Strategy from "@/pages/Strategy";
 import Analytics from "@/pages/Analytics";
+import Calendar from "@/pages/Calendar";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/library" component={Library} />
+      <Route path="/calendar" component={Calendar} />
       <Route path="/strategy" component={Strategy} />
       <Route path="/analytics" component={Analytics} />
       <Route component={NotFound} />
