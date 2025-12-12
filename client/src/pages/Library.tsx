@@ -3,7 +3,7 @@ import { type VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon } from "lucide-react";
+import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CaptionGenerator } from "@/components/CaptionGenerator";
@@ -27,12 +27,160 @@ const StatusBadge = ({ status }: { status: VideoStatus }) => {
   );
 };
 
-const VideoCard = ({ video }: { video: Video }) => {
+const VideoDetailModal = ({ video, isOpen, onClose }: { video: Video | null; isOpen: boolean; onClose: () => void }) => {
+  if (!video) return null;
+
+  const hasMedia = video.mediaUrl && video.mediaUrl !== "bg-zinc-900";
+  const isImage = video.mediaType === "image";
+  const music = video.aiData?.music || [];
+  const stickers = video.aiData?.stickers || [];
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? 'block' : 'hidden'}`}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-black border-2 border-white/20 flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-white/10">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-display text-2xl font-bold text-white mb-2">{video.title}</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <StatusBadge status={video.status} />
+              <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border border-zinc-700 text-zinc-400 bg-black/50">
+                {video.category}
+              </span>
+              {video.scheduledDate && (
+                <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border border-zinc-700 text-zinc-400">
+                  <Calendar className="w-3 h-3" />
+                  {format(new Date(video.scheduledDate), "MMM d, h:mma")}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-zinc-400 hover:text-white transition-colors p-2 hover:bg-zinc-900 rounded"
+            data-testid="button-close-modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto flex-1 flex flex-col lg:flex-row gap-6 p-6">
+          {/* Media Section */}
+          <div className="lg:w-2/3 flex flex-col gap-6">
+            <div className="bg-zinc-900 border border-zinc-800 aspect-video flex items-center justify-center overflow-hidden">
+              {hasMedia ? (
+                isImage ? (
+                  <img 
+                    src={video.mediaUrl!} 
+                    alt={video.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <video 
+                    src={video.mediaUrl!}
+                    className="w-full h-full object-cover"
+                    muted
+                    controls
+                  />
+                )
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-zinc-600">
+                  {video.mediaType === "video" ? (
+                    <VideoIcon className="w-16 h-16" />
+                  ) : (
+                    <ImageIcon className="w-16 h-16" />
+                  )}
+                  <p className="font-mono text-sm uppercase">No Media</p>
+                </div>
+              )}
+            </div>
+
+            {/* Caption Section */}
+            {video.caption && (
+              <div className="border border-zinc-800 bg-zinc-950/50 p-4">
+                <h3 className="font-display font-bold text-sm uppercase mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Caption
+                </h3>
+                <p className="font-mono text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                  {video.caption}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* AI Recommendations Section */}
+          <div className="lg:w-1/3 space-y-4">
+            {/* Music */}
+            {music.length > 0 && (
+              <div className="border border-zinc-800 bg-zinc-950/50 p-4">
+                <h3 className="font-display font-bold text-sm uppercase mb-3 flex items-center gap-2">
+                  <Music className="w-4 h-4 text-cyan-400" />
+                  Music Recommendations
+                </h3>
+                <div className="space-y-2">
+                  {music.map((track, index) => (
+                    <div key={index} className="p-2 bg-zinc-900 border border-zinc-800 rounded text-[12px]">
+                      <p className="font-mono text-zinc-300">{track}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stickers */}
+            {stickers.length > 0 && (
+              <div className="border border-zinc-800 bg-zinc-950/50 p-4">
+                <h3 className="font-display font-bold text-sm uppercase mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  Sticker Ideas
+                </h3>
+                <div className="space-y-2">
+                  {stickers.map((sticker, index) => (
+                    <div key={index} className="p-2 bg-zinc-900 border border-zinc-800 rounded text-[12px]">
+                      <p className="font-mono text-zinc-300">{sticker}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Extended Post */}
+            {video.aiData?.extendedPost && (
+              <div className="border border-zinc-800 bg-zinc-950/50 p-4">
+                <h3 className="font-display font-bold text-sm uppercase mb-3">Extended Post</h3>
+                <p className="font-mono text-[12px] text-zinc-300 whitespace-pre-wrap">
+                  {video.aiData.extendedPost}
+                </p>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {music.length === 0 && stickers.length === 0 && !video.aiData?.extendedPost && (
+              <div className="border border-zinc-800 bg-zinc-950/50 p-4 text-center">
+                <p className="font-mono text-xs text-zinc-600 uppercase">No AI recommendations yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const VideoCard = ({ video, onOpen }: { video: Video; onOpen: (video: Video) => void }) => {
   const hasMedia = video.mediaUrl && video.mediaUrl !== "bg-zinc-900";
   const isImage = video.mediaType === "image";
   
   return (
-    <div className="group relative bg-black border border-zinc-900 hover:border-zinc-700 transition-all duration-300 flex flex-col h-full" data-testid={`card-video-${video.id}`}>
+    <div 
+      className="group relative bg-black border border-zinc-900 hover:border-zinc-700 transition-all duration-300 flex flex-col h-full cursor-pointer"
+      onClick={() => onOpen(video)}
+      data-testid={`card-video-${video.id}`}
+    >
       <div className="aspect-video w-full bg-zinc-900 relative grayscale group-hover:grayscale-0 transition-all duration-500 overflow-hidden">
         {hasMedia ? (
           isImage ? (
@@ -100,7 +248,10 @@ const VideoCard = ({ video }: { video: Video }) => {
               </span>
             )}
           </div>
-          <button className="text-zinc-600 hover:text-white transition-colors shrink-0">
+          <button 
+            className="text-zinc-600 hover:text-white transition-colors shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <MoreHorizontal className="w-5 h-5" />
           </button>
         </div>
@@ -129,10 +280,21 @@ const VideoCard = ({ video }: { video: Video }) => {
           </div>
           
           <div className="grid grid-cols-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button size="sm" variant="outline" className="h-9 rounded-none border-zinc-700 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider" data-testid={`button-edit-${video.id}`}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-9 rounded-none border-zinc-700 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider"
+              onClick={(e) => e.stopPropagation()}
+              data-testid={`button-edit-${video.id}`}
+            >
               Edit
             </Button>
-            <Button size="sm" className="h-9 rounded-none bg-zinc-800 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider" data-testid={`button-schedule-${video.id}`}>
+            <Button 
+              size="sm" 
+              className="h-9 rounded-none bg-zinc-800 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider"
+              onClick={(e) => e.stopPropagation()}
+              data-testid={`button-schedule-${video.id}`}
+            >
               Schedule
             </Button>
           </div>
@@ -149,6 +311,8 @@ export default function Library() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("General");
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
@@ -284,6 +448,15 @@ export default function Library() {
 
   return (
     <Layout>
+      <VideoDetailModal 
+        video={selectedVideo} 
+        isOpen={isDetailOpen} 
+        onClose={() => {
+          setIsDetailOpen(false);
+          setSelectedVideo(null);
+        }}
+      />
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
         <div>
           <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-none mb-4">
@@ -458,7 +631,14 @@ export default function Library() {
           </div>
         ) : (
           filteredVideos.map((video) => (
-            <VideoCard key={video.id} video={video} />
+            <VideoCard 
+              key={video.id} 
+              video={video}
+              onOpen={(video) => {
+                setSelectedVideo(video);
+                setIsDetailOpen(true);
+              }}
+            />
           ))
         )}
       </div>
