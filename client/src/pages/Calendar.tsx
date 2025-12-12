@@ -201,15 +201,23 @@ const DroppableDay = ({
   );
 
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const droppableId = `day-${date.toISOString()}`;
+  const { isOver: dayIsOver, setNodeRef: setDayNodeRef } = useDroppable({
+    id: droppableId,
+    data: { date, isDay: true },
+  });
 
   // For month view, just show a simpler layout
   if (view === "month") {
     return (
       <div
+        ref={setDayNodeRef}
         className={`
-          border border-zinc-900 p-2 min-h-[120px] transition-colors
+          border transition-colors
+          ${dayIsOver ? "border-emerald-500 bg-emerald-500/20" : "border-zinc-900"}
           ${isCurrentMonth ? "bg-black" : "bg-zinc-950 opacity-40"}
           ${isWeekend ? "bg-zinc-950" : ""}
+          p-2 min-h-[120px]
         `}
         data-testid={`day-${format(date, "yyyy-MM-dd")}`}
       >
@@ -238,7 +246,11 @@ const DroppableDay = ({
   // Week view with time slots
   return (
     <div
-      className="border border-zinc-900 bg-black p-2 min-h-[200px] flex flex-col gap-2"
+      ref={setDayNodeRef}
+      className={`
+        border transition-colors bg-black p-2 min-h-[200px] flex flex-col gap-2
+        ${dayIsOver ? "border-emerald-500" : "border-zinc-900"}
+      `}
       data-testid={`day-${format(date, "yyyy-MM-dd")}`}
     >
       <div className="flex items-center justify-between mb-1">
@@ -272,8 +284,19 @@ const UnscheduledPanel = ({ videos }: { videos: Video[] }) => {
     v.status === "draft" && !v.scheduledDate
   );
 
+  const { isOver: panelIsOver, setNodeRef: setPanelNodeRef } = useDroppable({
+    id: "unscheduled-panel",
+    data: { isUnscheduled: true },
+  });
+
   return (
-    <div className="border border-zinc-900 bg-black p-4">
+    <div 
+      ref={setPanelNodeRef}
+      className={`
+        border transition-colors bg-black p-4
+        ${panelIsOver ? "border-emerald-500 bg-emerald-500/10" : "border-zinc-900"}
+      `}
+    >
       <h3 className="font-display font-bold uppercase text-sm mb-4 flex items-center gap-2">
         <div className="w-2 h-2 bg-yellow-500 rounded-full" />
         Unscheduled Content
@@ -381,8 +404,22 @@ export default function Calendar() {
     const { active, over } = event;
     setActiveId(null);
 
-    if (over && over.data.current?.date && over.data.current?.hour !== undefined) {
-      const videoId = active.id as number;
+    if (!over) return;
+
+    const videoId = active.id as number;
+
+    // Drop on unscheduled panel - remove schedule
+    if (over.data.current?.isUnscheduled) {
+      updateVideoMutation.mutate({ 
+        id: videoId, 
+        scheduledDate: null as any,
+        status: "draft" 
+      });
+      return;
+    }
+
+    // Drop on time slot (week view)
+    if (over.data.current?.date && over.data.current?.hour !== undefined) {
       const targetDate = over.data.current.date as Date;
       const targetHour = over.data.current.hour as number;
       const scheduledDate = setMinutes(setHours(targetDate, targetHour), 0);
@@ -392,6 +429,21 @@ export default function Calendar() {
         scheduledDate,
         status: "scheduled" 
       });
+      return;
+    }
+
+    // Drop on day cell (month view or general day)
+    if (over.data.current?.date && over.data.current?.isDay) {
+      const targetDate = over.data.current.date as Date;
+      // Default to morning (9am) when dropping on a day without specific time slot
+      const scheduledDate = setMinutes(setHours(targetDate, 9), 0);
+      
+      updateVideoMutation.mutate({ 
+        id: videoId, 
+        scheduledDate,
+        status: "scheduled" 
+      });
+      return;
     }
   };
 
