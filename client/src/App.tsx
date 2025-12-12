@@ -9,6 +9,7 @@ import Library from "@/pages/Library";
 import Strategy from "@/pages/Strategy";
 import Analytics from "@/pages/Analytics";
 import Calendar from "@/pages/Calendar";
+import Settings from "@/pages/Settings";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/calendar" component={Calendar} />
       <Route path="/strategy" component={Strategy} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

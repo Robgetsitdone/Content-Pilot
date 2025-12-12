@@ -50,9 +50,11 @@ export const videos = pgTable("videos", {
 export const instagramSettings = pgTable("instagram_settings", {
   id: serial("id").primaryKey(),
   accessToken: text("access_token"),
+  businessAccountId: text("business_account_id"),
   igUserId: text("ig_user_id"),
   tokenExpiresAt: timestamp("token_expires_at"),
   isConnected: boolean("is_connected").default(false),
+  autoPublish: boolean("auto_publish").default(false),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

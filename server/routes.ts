@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema } from "@shared/schema";
 import { generateCaptions, analyzeContent } from "./gemini";
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
+import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -368,12 +369,60 @@ export async function registerRoutes(
 
   app.post("/api/instagram/settings", async (req, res) => {
     try {
-      const settingsData = insertInstagramSettingsSchema.parse(req.body);
-      const settings = await storage.upsertInstagramSettings(settingsData);
+      const { accessToken, businessAccountId, igUserId, autoPublish } = req.body;
+      
+      if (!accessToken || !businessAccountId) {
+        return res.status(400).json({ error: "Access token and Business Account ID are required" });
+      }
+
+      const settings = await storage.upsertInstagramSettings({
+        accessToken,
+        businessAccountId,
+        igUserId: igUserId || null,
+        autoPublish: autoPublish || false,
+        isConnected: !!(accessToken && igUserId),
+      });
       res.json(settings);
     } catch (error) {
       console.error("Error saving Instagram settings:", error);
       res.status(400).json({ error: "Invalid Instagram settings" });
+    }
+  });
+
+  app.post("/api/instagram/test", async (req, res) => {
+    try {
+      const { accessToken, businessAccountId } = req.body;
+      
+      if (!accessToken || !businessAccountId) {
+        return res.status(400).json({ error: "Missing credentials" });
+      }
+
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${businessAccountId}?fields=instagram_business_account{id,username},name&access_token=${accessToken}`
+      );
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Instagram API error:", error);
+        return res.status(400).json({ error: "Invalid credentials or permissions" });
+      }
+
+      const data = await response.json();
+      const igAccount = data.instagram_business_account;
+      
+      if (!igAccount) {
+        return res.status(400).json({ error: "No Instagram Business Account linked to this Facebook Page" });
+      }
+
+      res.json({ 
+        success: true, 
+        username: igAccount.username,
+        igUserId: igAccount.id,
+        pageId: businessAccountId 
+      });
+    } catch (error) {
+      console.error("Error testing Instagram connection:", error);
+      res.status(500).json({ error: "Failed to test connection" });
     }
   });
 
@@ -424,6 +473,65 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to toggle notification" });
     }
   });
+
+  // Instagram Publish Endpoints
+  app.post("/api/videos/:id/publish", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const video = await storage.getVideo(id);
+      
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+
+      if (!video.mediaUrl || !video.caption) {
+        return res.status(400).json({ error: "Video must have media and caption to publish" });
+      }
+
+      const result = await publishToInstagram(
+        video.id,
+        video.mediaUrl,
+        video.caption,
+        video.mediaType || "image"
+      );
+
+      if (result.success) {
+        const updatedVideo = await storage.updateVideo(id, {
+          status: "posted",
+          publishedDate: new Date(),
+          instagramPostId: result.postId,
+        });
+        res.json({ success: true, video: updatedVideo, postId: result.postId });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error("Error publishing to Instagram:", error);
+      res.status(500).json({ error: "Failed to publish to Instagram" });
+    }
+  });
+
+  app.post("/api/scheduler/run", async (req, res) => {
+    try {
+      const result = await checkAndPublishScheduledPosts();
+      res.json(result);
+    } catch (error) {
+      console.error("Scheduler error:", error);
+      res.status(500).json({ error: "Scheduler failed" });
+    }
+  });
+
+  // Start scheduler interval (check every minute)
+  setInterval(async () => {
+    try {
+      const result = await checkAndPublishScheduledPosts();
+      if (result.published > 0 || result.failed > 0) {
+        console.log(`Scheduler: Published ${result.published}, Failed ${result.failed}`);
+      }
+    } catch (error) {
+      console.error("Scheduler interval error:", error);
+    }
+  }, 60000);
 
   return httpServer;
 }

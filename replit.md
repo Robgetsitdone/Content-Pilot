@@ -42,9 +42,28 @@ Preferred communication style: Simple, everyday language.
 
 ### Application Pages
 - **Dashboard**: Overview with stats, upcoming posts, and quick actions
-- **Library**: Video content management with filtering and AI caption generation
+- **Library**: Video content management with filtering, AI caption generation, and "Notify Me" toggle for post reminders
+- **Calendar**: Drag-and-drop scheduling with Morning/Afternoon/Evening time slots (9am, 12pm, 5pm)
 - **Strategy**: Configure drip frequency and category weight distribution
 - **Analytics**: AI-powered chat interface for content performance insights
+- **Settings**: Platform connections for Instagram and Google Calendar
+
+### Social Media Integration
+- **Instagram Publishing**: 
+  - Instagram Graph API integration for auto-publishing posts
+  - Supports image and video (Reels) posting
+  - Auto-publish toggle for scheduled posts
+  - Scheduler runs every 60 seconds to publish ready posts
+- **Google Calendar**: 
+  - Calendar reminders for posts with "Notify Me" enabled
+  - Auto-enabled for Family/Parenting category posts
+  - Creates events at post scheduled time for real-time comment engagement
+
+### Key Features
+- **11 Content Categories**: Family, Parenting, Fitness, Gym + Life + Fitness, Travel, Business, Lifestyle, Education, Entertainment, Food, General
+- **Time Slot Scheduling**: Morning (9am), Afternoon (12pm), Evening (5pm) slots per day
+- **AI Caption Generation**: Gemini-powered with masculine, hardworking, witty voice
+- **Multi-file Upload**: Batch upload support for images and videos
 
 ## External Dependencies
 

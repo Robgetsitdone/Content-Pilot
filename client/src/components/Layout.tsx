@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Library, Settings2, Zap, Menu, BarChart2, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Library, Settings2, Zap, Menu, BarChart2, CalendarDays, Settings } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Calendar", icon: CalendarDays, href: "/calendar" },
   { label: "Analytics", icon: BarChart2, href: "/analytics" },
   { label: "Strategy", icon: Settings2, href: "/strategy" },
+  { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
