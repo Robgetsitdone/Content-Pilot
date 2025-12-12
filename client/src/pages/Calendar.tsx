@@ -58,6 +58,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   "General": "#71717a",
 };
 
+const TIME_SLOTS = [
+  { hour: 9, label: "Morning", id: "morning" },
+  { hour: 12, label: "Afternoon", id: "afternoon" },
+  { hour: 17, label: "Evening", id: "evening" },
+];
+
 const DraggableContent = ({ video, isDragging }: { video: Video; isDragging?: boolean }) => {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: video.id,
@@ -135,6 +141,50 @@ const DragOverlayContent = ({ video }: { video: Video }) => {
   );
 };
 
+const DroppableTimeSlot = ({ 
+  date,
+  slotHour,
+  slotLabel,
+  videos,
+}: {
+  date: Date;
+  slotHour: number;
+  slotLabel: string;
+  videos: Video[];
+}) => {
+  const droppableId = `${date.toISOString()}-${slotHour}`;
+  const { isOver, setNodeRef } = useDroppable({
+    id: droppableId,
+    data: { date, hour: slotHour },
+  });
+
+  const slotVideos = videos.filter(v => 
+    v.scheduledDate && 
+    isSameDay(new Date(v.scheduledDate), date) &&
+    new Date(v.scheduledDate).getHours() === slotHour
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        border border-zinc-800 p-2 min-h-[60px] transition-colors rounded
+        ${isOver ? "bg-emerald-500/20 border-emerald-500" : "bg-zinc-950/50"}
+      `}
+      data-testid={`slot-${format(date, "yyyy-MM-dd")}-${slotLabel.toLowerCase()}`}
+    >
+      <div className="text-[10px] font-mono text-zinc-600 uppercase mb-1.5 tracking-wide">
+        {slotLabel}
+      </div>
+      <div className="space-y-1">
+        {slotVideos.map((video) => (
+          <DraggableContent key={video.id} video={video} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const DroppableDay = ({ 
   date, 
   videos, 
@@ -146,45 +196,71 @@ const DroppableDay = ({
   isCurrentMonth: boolean;
   view: "week" | "month";
 }) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id: date.toISOString(),
-    data: { date },
-  });
-
   const dayVideos = videos.filter(v => 
     v.scheduledDate && isSameDay(new Date(v.scheduledDate), date)
   );
 
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
+  // For month view, just show a simpler layout
+  if (view === "month") {
+    return (
+      <div
+        className={`
+          border border-zinc-900 p-2 min-h-[120px] transition-colors
+          ${isCurrentMonth ? "bg-black" : "bg-zinc-950 opacity-40"}
+          ${isWeekend ? "bg-zinc-950" : ""}
+        `}
+        data-testid={`day-${format(date, "yyyy-MM-dd")}`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className={`
+            font-display text-sm font-bold
+            ${isToday(date) ? "bg-white text-black px-2 py-0.5" : "text-zinc-500"}
+          `}>
+            {format(date, "d")}
+          </span>
+        </div>
+        <div className="space-y-1">
+          {dayVideos.slice(0, 2).map((video) => (
+            <DraggableContent key={video.id} video={video} />
+          ))}
+          {dayVideos.length > 2 && (
+            <p className="font-mono text-[9px] text-zinc-600 px-2">
+              +{dayVideos.length - 2} more
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Week view with time slots
   return (
     <div
-      ref={setNodeRef}
-      className={`
-        border border-zinc-900 p-2 min-h-[120px] transition-colors
-        ${view === "week" ? "min-h-[200px]" : ""}
-        ${isOver ? "bg-emerald-500/10 border-emerald-500" : "bg-black"}
-        ${!isCurrentMonth ? "opacity-40" : ""}
-        ${isWeekend ? "bg-zinc-950" : ""}
-      `}
+      className="border border-zinc-900 bg-black p-2 min-h-[200px] flex flex-col gap-2"
       data-testid={`day-${format(date, "yyyy-MM-dd")}`}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <span className={`
           font-display text-sm font-bold
           ${isToday(date) ? "bg-white text-black px-2 py-0.5" : "text-zinc-500"}
         `}>
           {format(date, "d")}
         </span>
-        {view === "week" && (
-          <span className="font-mono text-[10px] text-zinc-600 uppercase">
-            {format(date, "EEE")}
-          </span>
-        )}
+        <span className="font-mono text-[10px] text-zinc-600 uppercase">
+          {format(date, "EEE")}
+        </span>
       </div>
-      <div className="space-y-1">
-        {dayVideos.map((video) => (
-          <DraggableContent key={video.id} video={video} />
+      <div className="space-y-1.5 flex-1">
+        {TIME_SLOTS.map(({ hour, label }) => (
+          <DroppableTimeSlot
+            key={label}
+            date={date}
+            slotHour={hour}
+            slotLabel={label}
+            videos={videos}
+          />
         ))}
       </div>
     </div>
@@ -305,10 +381,11 @@ export default function Calendar() {
     const { active, over } = event;
     setActiveId(null);
 
-    if (over && over.data.current?.date) {
+    if (over && over.data.current?.date && over.data.current?.hour !== undefined) {
       const videoId = active.id as number;
       const targetDate = over.data.current.date as Date;
-      const scheduledDate = setMinutes(setHours(targetDate, 9), 0);
+      const targetHour = over.data.current.hour as number;
+      const scheduledDate = setMinutes(setHours(targetDate, targetHour), 0);
       
       updateVideoMutation.mutate({ 
         id: videoId, 
