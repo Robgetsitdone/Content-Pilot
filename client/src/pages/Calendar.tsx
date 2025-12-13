@@ -42,6 +42,8 @@ import {
 } from "date-fns";
 import type { Video } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { celebrateSchedule } from "@/lib/celebrations";
+import { useToast } from "@/hooks/use-toast";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Business": "#ffffff",
@@ -321,6 +323,7 @@ export default function Calendar() {
   const [view, setView] = useState<"week" | "month">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
+  const { toast } = useToast();
 
   const queryClient = useQueryClient();
 
@@ -348,9 +351,17 @@ export default function Calendar() {
         status 
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kpis"] });
+      if (variables.status === "scheduled" && variables.scheduledDate) {
+        celebrateSchedule();
+        toast({
+          title: "Post Scheduled!",
+          description: `Scheduled for ${format(variables.scheduledDate, "MMM d 'at' h:mm a")}`,
+          duration: 3000,
+        });
+      }
     },
   });
 
@@ -361,6 +372,12 @@ export default function Calendar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kpis"] });
+      celebrateSchedule();
+      toast({
+        title: "Auto-Scheduled!",
+        description: "Your content has been automatically scheduled",
+        duration: 3000,
+      });
     },
   });
 
@@ -461,7 +478,7 @@ export default function Calendar() {
           <Button
             onClick={() => autoScheduleMutation.mutate()}
             disabled={autoScheduleMutation.isPending}
-            className="bg-white text-black hover:bg-zinc-200 font-display uppercase tracking-tight"
+            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-display uppercase tracking-tight"
             data-testid="button-auto-schedule"
           >
             <Wand2 className="w-4 h-4 mr-2" />

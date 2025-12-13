@@ -543,7 +543,7 @@ export default function Library() {
         
         <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
           <DialogTrigger asChild>
-            <Button className="h-12 px-8 rounded-none bg-white text-black hover:bg-zinc-200 font-display font-bold text-lg tracking-tight">
+            <Button className="h-12 px-8 rounded-none bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-display font-bold text-lg tracking-tight">
               <Plus className="w-5 h-5 mr-2" />
               UPLOAD ASSET
             </Button>

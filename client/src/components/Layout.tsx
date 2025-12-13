@@ -23,12 +23,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full bg-[#050505] border-r border-white/10">
       <div className="p-8 pb-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-bold">
-            <Zap className="w-6 h-6 fill-black" />
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center font-bold rounded-lg">
+            <Zap className="w-6 h-6" />
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-bold text-xl tracking-tight leading-none text-white">CONTENT</span>
-            <span className="font-display font-bold text-xl tracking-tight leading-none text-zinc-500">FLOW</span>
+            <span className="font-display font-bold text-xl tracking-tight leading-none text-white">CREATOR</span>
+            <span className="font-display font-bold text-xl tracking-tight leading-none bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">PULSE</span>
           </div>
         </div>
       </div>

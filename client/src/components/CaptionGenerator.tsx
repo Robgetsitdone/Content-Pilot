@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useGenerateCaptions } from "@/hooks/useAI";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { celebrateCaptions } from "@/lib/celebrations";
 
 interface CaptionData {
   captions: Array<{
@@ -83,6 +84,7 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], catego
       
       setAiResponse(result);
       setStep("results");
+      celebrateCaptions();
     } catch (error) {
       console.error("Failed to generate captions:", error);
       setStep("input");
@@ -171,7 +173,7 @@ export function CaptionGenerator({ isOpen, onClose, onSelect, files = [], catego
               data-testid="button-generate"
               onClick={handleGenerate}
               disabled={!contentDescription.trim() || generateCaptions.isPending}
-              className="w-full h-12 bg-white text-black hover:bg-zinc-200 font-bold font-display uppercase tracking-tight disabled:opacity-50"
+              className="w-full h-12 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-bold font-display uppercase tracking-tight disabled:opacity-50"
             >
               {generateCaptions.isPending ? (
                 <>

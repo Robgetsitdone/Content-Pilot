@@ -1,8 +1,8 @@
-# ContentFlow - AI-Powered Content Strategy Platform
+# Creator Pulse - AI-Powered Content Strategy Platform
 
 ## Overview
 
-ContentFlow is an AI-powered content strategy and drip scheduling platform for social media content creators. The application helps users manage video content, generate AI-powered captions using Google's Gemini API, schedule posts, and analyze content performance. It features a dark, modern UI designed for content creators who want to streamline their social media workflow.
+Creator Pulse is an AI-powered content strategy and drip scheduling platform for social media content creators. The application helps users manage video content, generate AI-powered captions using Google's Gemini API, schedule posts, and analyze content performance. It features a dark, modern UI designed for content creators who want to streamline their social media workflow.
 
 ## User Preferences
 

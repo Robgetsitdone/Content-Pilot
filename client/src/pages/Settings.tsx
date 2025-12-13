@@ -232,7 +232,7 @@ export default function Settings() {
               <Button
                 onClick={handleSave}
                 disabled={saveMutation.isPending}
-                className="rounded-none bg-white text-black hover:bg-zinc-200 font-mono uppercase tracking-wider"
+                className="rounded-none bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-mono uppercase tracking-wider"
                 data-testid="button-save-settings"
               >
                 {saveMutation.isPending ? (
