@@ -342,9 +342,9 @@ export default function Calendar() {
   });
 
   const updateVideoMutation = useMutation({
-    mutationFn: async ({ id, scheduledDate, status }: { id: number; scheduledDate: Date; status: string }) => {
+    mutationFn: async ({ id, scheduledDate, status }: { id: number; scheduledDate: Date | null; status: string }) => {
       return apiRequest("PATCH", `/api/videos/${id}`, { 
-        scheduledDate: scheduledDate.toISOString(), 
+        scheduledDate: scheduledDate ? scheduledDate.toISOString() : null, 
         status 
       });
     },

@@ -56,6 +56,11 @@ export async function registerRoutes(
       }
 
       const updateData = { ...req.body };
+      
+      // Convert scheduledDate string to Date object if present
+      if (updateData.scheduledDate !== undefined) {
+        updateData.scheduledDate = updateData.scheduledDate ? new Date(updateData.scheduledDate) : null;
+      }
 
       // Handle calendar reminder if notifyMe is enabled and scheduling
       if (req.body.notifyMe === true && req.body.scheduledDate && req.body.status === "scheduled") {
