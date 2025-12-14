@@ -135,9 +135,12 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
   for (const image of images) {
     try {
       const result = await analyzeSingleImage(image.base64, image.filename);
+      console.log(`[Gemini Vision] Successfully analyzed ${image.filename}:`, result.category);
       results.push(result);
-    } catch (error) {
-      console.error(`Failed to analyze ${image.filename}:`, error);
+    } catch (error: any) {
+      console.error(`[Gemini Vision] FAILED to analyze ${image.filename}:`);
+      console.error(`[Gemini Vision] Error message:`, error?.message || error);
+      console.error(`[Gemini Vision] Full error:`, JSON.stringify(error, null, 2));
       results.push({
         filename: image.filename,
         category: "General",
@@ -159,27 +162,31 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
 async function analyzeSingleImage(base64: string, filename: string): Promise<ImageAnalysisResult> {
   const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
   
-  const prompt = `Analyze this image for an Instagram content creator. 
+  const prompt = `Analyze this specific image carefully for an Instagram content creator. Describe what you see in the image and create unique, personalized captions based on the actual visual content.
 
 ${VOICE_GUIDELINES}
 
 Categories to choose from: ${CATEGORIES.join(", ")}
 
+IMPORTANT: Your response must be unique to THIS specific image. Look at the people, setting, activities, and mood in the image.
+
 Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "category": "detected category from the list above",
+  "category": "detected category from the list above based on image content",
   "captions": [
-    {"id": "c1", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]},
-    {"id": "c2", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]},
-    {"id": "c3", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]}
+    {"id": "c1", "tone": "tone name", "text": "unique caption under 50 words describing THIS image", "hashtags": ["#relevant1", "#relevant2", "#relevant3"]},
+    {"id": "c2", "tone": "different tone", "text": "different unique caption under 50 words", "hashtags": ["#different1", "#different2", "#different3"]},
+    {"id": "c3", "tone": "third tone", "text": "third unique caption under 50 words", "hashtags": ["#unique1", "#unique2", "#unique3"]}
   ],
-  "extendedPost": "extended caption under 100 words",
-  "music": ["song/genre 1", "song/genre 2", "song/genre 3"],
-  "stickers": ["emoji1", "emoji2", "emoji3"]
+  "extendedPost": "extended caption under 100 words specifically about this image",
+  "music": ["song that fits this image", "another fitting song", "third song option"],
+  "stickers": ["relevant emoji", "another emoji", "third emoji"]
 }`;
 
+  console.log(`[Gemini Vision] Analyzing image: ${filename}`);
+  
   const result = await genAI.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: MODEL,
     contents: [
       {
         role: "user",
