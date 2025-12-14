@@ -43,10 +43,16 @@ async function deleteVideo(id: number): Promise<void> {
 }
 
 export function useVideos() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["videos"],
     queryFn: fetchVideos,
+    // Refetch every 2 seconds while videos are being analyzed
+    // This ensures posts show up as soon as captions are ready
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
   });
+
+  return query;
 }
 
 export function useCreateVideo() {
