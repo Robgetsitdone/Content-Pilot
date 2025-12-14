@@ -21,10 +21,10 @@ async function apiRequest(method: string, url: string, data?: any) {
 }
 
 const STRATEGY_PRESETS: Record<string, Record<string, number>> = {
-  "Family Focus": { Family: 40, Parenting: 30, Lifestyle: 15, Entertainment: 10, General: 5 },
-  "Fitness Heavy": { Fitness: 40, "Gym + Life + Fitness": 30, Lifestyle: 15, Travel: 10, General: 5 },
+  "Family Focus": { Family: 25, Parenting: 20, Lifestyle: 15, Fitness: 5, "Gym + Life + Fitness": 5, Travel: 5, Business: 5, Education: 5, Entertainment: 5, Food: 5, General: 5 },
+  "Fitness Heavy": { Fitness: 25, "Gym + Life + Fitness": 20, Lifestyle: 15, Family: 5, Parenting: 5, Travel: 5, Business: 5, Education: 5, Entertainment: 5, Food: 5, General: 5 },
   "Balanced": { Family: 9, Parenting: 9, Fitness: 9, "Gym + Life + Fitness": 9, Travel: 9, Business: 9, Lifestyle: 9, Education: 9, Entertainment: 9, Food: 9, General: 10 },
-  "Business Mode": { Business: 40, Education: 30, Lifestyle: 15, Entertainment: 10, General: 5 },
+  "Business Mode": { Business: 25, Education: 20, Lifestyle: 15, Family: 5, Parenting: 5, Fitness: 5, "Gym + Life + Fitness": 5, Travel: 5, Entertainment: 5, Food: 5, General: 5 },
 };
 
 export default function Strategy() {
