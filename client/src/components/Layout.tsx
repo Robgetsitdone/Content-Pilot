@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Library, Settings2, Zap, Menu, BarChart2, CalendarDays, Settings } from "lucide-react";
+import { LayoutDashboard, Library, Settings2, Zap, Menu, BarChart2, CalendarDays, Settings, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WEEKLY_KPIS } from "@/lib/mockData";
+import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const NavContent = () => (
     <div className="flex flex-col h-full bg-[#050505] border-r border-white/10">
@@ -56,6 +58,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+
+      {user && (
+        <div className="px-6 py-4 border-t border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-white truncate max-w-[120px]" data-testid="text-user-name">
+                  {user.displayName || user.email?.split('@')[0]}
+                </span>
+                <span className="text-xs text-zinc-500 truncate max-w-[120px]" data-testid="text-user-email">
+                  {user.email}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logout}
+              className="text-zinc-500 hover:text-white hover:bg-white/5"
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="p-8">
         <div className="border border-white/10 bg-zinc-900/30 p-5 space-y-4">
