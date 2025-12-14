@@ -3,7 +3,7 @@ import { type VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles, Bell, BellOff, Check, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles, Bell, BellOff, Check, Loader2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CaptionGenerator } from "@/components/CaptionGenerator";
@@ -237,7 +237,7 @@ const VideoDetailModal = ({ video, isOpen, onClose, onNotifyToggle }: {
   );
 };
 
-const VideoCard = ({ video, onOpen }: { video: Video; onOpen: (video: Video) => void }) => {
+const VideoCard = ({ video, onOpen, deleteMutation }: { video: Video; onOpen: (video: Video) => void; deleteMutation: any }) => {
   const hasMedia = video.mediaUrl && video.mediaUrl !== "bg-zinc-900";
   const isImage = video.mediaType === "image";
   
@@ -345,7 +345,7 @@ const VideoCard = ({ video, onOpen }: { video: Video; onOpen: (video: Video) => 
             )}
           </div>
           
-          <div className="grid grid-cols-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="grid grid-cols-3 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <Button 
               size="sm" 
               variant="outline" 
@@ -362,6 +362,19 @@ const VideoCard = ({ video, onOpen }: { video: Video; onOpen: (video: Video) => 
               data-testid={`button-schedule-${video.id}`}
             >
               Schedule
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 rounded-none border-red-900/50 hover:bg-red-900/20 hover:border-red-700 text-red-400 hover:text-red-300 font-mono text-xs uppercase tracking-wider"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(video.id);
+              }}
+              disabled={deleteMutation.isPending}
+              data-testid={`button-delete-${video.id}`}
+            >
+              <Trash2 className="w-3 h-3" />
             </Button>
           </div>
         </div>
@@ -414,12 +427,42 @@ export default function Library() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (videoId: number) => {
+      return apiRequest("DELETE", `/api/videos/${videoId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Post Deleted",
+        description: "Your content has been removed.",
+        duration: 2000,
+      });
+      if (isDetailOpen) {
+        setIsDetailOpen(false);
+        setSelectedVideo(null);
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete post",
+        variant: "destructive",
+        duration: 3000,
+      });
+    },
+  });
+
   const handleNotifyToggle = (videoId: number, notifyMe: boolean) => {
     notifyMutation.mutate({ videoId, notifyMe });
     // Update local state immediately for responsiveness
     if (selectedVideo && selectedVideo.id === videoId) {
       setSelectedVideo({ ...selectedVideo, notifyMe });
     }
+  };
+
+  const handleDelete = (videoId: number) => {
+    deleteMutation.mutate(videoId);
   };
 
   const filteredVideos = videos.filter(v => 
@@ -1035,6 +1078,7 @@ export default function Library() {
             <VideoCard 
               key={video.id} 
               video={video}
+              deleteMutation={deleteMutation}
               onOpen={(video) => {
                 setSelectedVideo(video);
                 setIsDetailOpen(true);
