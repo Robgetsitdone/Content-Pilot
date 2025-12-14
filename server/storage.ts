@@ -4,31 +4,33 @@ import { eq, desc, lte, and } from "drizzle-orm";
 
 export interface IStorage {
   // Videos
-  getVideos(): Promise<Video[]>;
-  getVideo(id: number): Promise<Video | undefined>;
+  getVideos(userId: string): Promise<Video[]>;
+  getVideo(id: number, userId: string): Promise<Video | undefined>;
   createVideo(video: InsertVideo): Promise<Video>;
   createVideosBatch(videos: InsertVideo[]): Promise<Video[]>;
-  updateVideo(id: number, video: Partial<InsertVideo>): Promise<Video | undefined>;
-  deleteVideo(id: number): Promise<void>;
+  updateVideo(id: number, userId: string, video: Partial<InsertVideo>): Promise<Video | undefined>;
+  deleteVideo(id: number, userId: string): Promise<void>;
   getScheduledPostsReady(): Promise<Video[]>;
   
   // Strategy Settings
-  getStrategySettings(): Promise<StrategySettings | undefined>;
-  upsertStrategySettings(settings: InsertStrategySettings): Promise<StrategySettings>;
+  getStrategySettings(userId: string): Promise<StrategySettings | undefined>;
+  upsertStrategySettings(userId: string, settings: Omit<InsertStrategySettings, 'userId'>): Promise<StrategySettings>;
   
   // Instagram Settings
-  getInstagramSettings(): Promise<InstagramSettings | undefined>;
-  upsertInstagramSettings(settings: InsertInstagramSettings): Promise<InstagramSettings>;
+  getInstagramSettings(userId: string): Promise<InstagramSettings | undefined>;
+  upsertInstagramSettings(userId: string, settings: Omit<InsertInstagramSettings, 'userId'>): Promise<InstagramSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // Videos
-  async getVideos(): Promise<Video[]> {
-    return db.select().from(videos).orderBy(desc(videos.createdAt));
+  // Videos - filtered by userId
+  async getVideos(userId: string): Promise<Video[]> {
+    return db.select().from(videos).where(eq(videos.userId, userId)).orderBy(desc(videos.createdAt));
   }
 
-  async getVideo(id: number): Promise<Video | undefined> {
-    const result = await db.select().from(videos).where(eq(videos.id, id));
+  async getVideo(id: number, userId: string): Promise<Video | undefined> {
+    const result = await db.select().from(videos).where(
+      and(eq(videos.id, id), eq(videos.userId, userId))
+    );
     return result[0];
   }
 
@@ -37,17 +39,17 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateVideo(id: number, video: Partial<InsertVideo>): Promise<Video | undefined> {
+  async updateVideo(id: number, userId: string, video: Partial<InsertVideo>): Promise<Video | undefined> {
     const result = await db
       .update(videos)
       .set({ ...video, updatedAt: new Date() } as any)
-      .where(eq(videos.id, id))
+      .where(and(eq(videos.id, id), eq(videos.userId, userId)))
       .returning();
     return result[0];
   }
 
-  async deleteVideo(id: number): Promise<void> {
-    await db.delete(videos).where(eq(videos.id, id));
+  async deleteVideo(id: number, userId: string): Promise<void> {
+    await db.delete(videos).where(and(eq(videos.id, id), eq(videos.userId, userId)));
   }
 
   async createVideosBatch(videosData: InsertVideo[]): Promise<Video[]> {
@@ -56,14 +58,14 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Strategy Settings
-  async getStrategySettings(): Promise<StrategySettings | undefined> {
-    const result = await db.select().from(strategySettings).limit(1);
+  // Strategy Settings - filtered by userId
+  async getStrategySettings(userId: string): Promise<StrategySettings | undefined> {
+    const result = await db.select().from(strategySettings).where(eq(strategySettings.userId, userId)).limit(1);
     return result[0];
   }
 
-  async upsertStrategySettings(settings: InsertStrategySettings): Promise<StrategySettings> {
-    const existing = await this.getStrategySettings();
+  async upsertStrategySettings(userId: string, settings: Omit<InsertStrategySettings, 'userId'>): Promise<StrategySettings> {
+    const existing = await this.getStrategySettings(userId);
     
     if (existing) {
       const result = await db
@@ -73,7 +75,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return result[0];
     } else {
-      const result = await db.insert(strategySettings).values(settings).returning();
+      const result = await db.insert(strategySettings).values({ ...settings, userId }).returning();
       return result[0];
     }
   }
@@ -88,14 +90,14 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  // Instagram Settings
-  async getInstagramSettings(): Promise<InstagramSettings | undefined> {
-    const result = await db.select().from(instagramSettings).limit(1);
+  // Instagram Settings - filtered by userId
+  async getInstagramSettings(userId: string): Promise<InstagramSettings | undefined> {
+    const result = await db.select().from(instagramSettings).where(eq(instagramSettings.userId, userId)).limit(1);
     return result[0];
   }
 
-  async upsertInstagramSettings(settings: InsertInstagramSettings): Promise<InstagramSettings> {
-    const existing = await this.getInstagramSettings();
+  async upsertInstagramSettings(userId: string, settings: Omit<InsertInstagramSettings, 'userId'>): Promise<InstagramSettings> {
+    const existing = await this.getInstagramSettings(userId);
     
     if (existing) {
       const result = await db
@@ -105,7 +107,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return result[0];
     } else {
-      const result = await db.insert(instagramSettings).values(settings).returning();
+      const result = await db.insert(instagramSettings).values({ ...settings, userId }).returning();
       return result[0];
     }
   }

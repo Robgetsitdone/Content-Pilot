@@ -5,12 +5,16 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").unique(),
+  googleId: text("google_id").unique(),
+  passwordHash: text("password_hash"),
+  displayName: text("display_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const videos = pgTable("videos", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   thumbnail: text("thumbnail").notNull(),
   mediaUrl: text("media_url"),
@@ -49,6 +53,7 @@ export const videos = pgTable("videos", {
 
 export const instagramSettings = pgTable("instagram_settings", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   accessToken: text("access_token"),
   businessAccountId: text("business_account_id"),
   igUserId: text("ig_user_id"),
@@ -60,14 +65,26 @@ export const instagramSettings = pgTable("instagram_settings", {
 
 export const strategySettings = pgTable("strategy_settings", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   dripFrequency: integer("drip_frequency").notNull().default(5),
   categoryWeights: jsonb("category_weights").notNull().$type<Record<string, number>>(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const signupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  displayName: z.string().min(1, "Display name is required"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const insertVideoSchema = createInsertSchema(videos).omit({

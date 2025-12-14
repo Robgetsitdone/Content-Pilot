@@ -1,20 +1,116 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema } from "@shared/schema";
+import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema, signupSchema, loginSchema } from "@shared/schema";
 import { generateCaptions, analyzeContent, analyzeImageBatch } from "./gemini";
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
 import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
+import { requireAuth, hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId } from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // ===== AUTH ROUTES (public) =====
+  
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, password, displayName } = signupSchema.parse(req.body);
+      
+      const existingUser = await findUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already registered" });
+      }
+
+      const passwordHash = await hashPassword(password);
+      const user = await createUser({ email, passwordHash, displayName });
+      
+      req.session.userId = user.id;
+      res.status(201).json({ 
+        id: user.id, 
+        email: user.email, 
+        displayName: user.displayName 
+      });
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      if (error.issues) {
+        return res.status(400).json({ error: error.issues[0].message });
+      }
+      res.status(500).json({ error: "Signup failed" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+      
+      const user = await findUserByEmail(email);
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      const valid = await verifyPassword(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      req.session.userId = user.id;
+      res.json({ 
+        id: user.id, 
+        email: user.email, 
+        displayName: user.displayName 
+      });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      if (error.issues) {
+        return res.status(400).json({ error: error.issues[0].message });
+      }
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const user = await findUserByEmail(req.session.userId);
+    if (!user) {
+      const { findUserById } = await import("./auth");
+      const userById = await findUserById(req.session.userId);
+      if (!userById) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      return res.json({ 
+        id: userById.id, 
+        email: userById.email, 
+        displayName: userById.displayName 
+      });
+    }
+    res.json({ 
+      id: user.id, 
+      email: user.email, 
+      displayName: user.displayName 
+    });
+  });
+
+  // ===== PROTECTED ROUTES (require auth) =====
   
   // Video Routes
-  app.get("/api/videos", async (req, res) => {
+  app.get("/api/videos", requireAuth, async (req, res) => {
     try {
-      const videos = await storage.getVideos();
+      const videos = await storage.getVideos(req.user!.id);
       res.json(videos);
     } catch (error) {
       console.error("Error fetching videos:", error);
@@ -22,10 +118,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/videos/:id", async (req, res) => {
+  app.get("/api/videos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const video = await storage.getVideo(id);
+      const video = await storage.getVideo(id, req.user!.id);
       if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
@@ -36,10 +132,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/videos", async (req, res) => {
+  app.post("/api/videos", requireAuth, async (req, res) => {
     try {
       const videoData = insertVideoSchema.parse(req.body);
-      const video = await storage.createVideo(videoData);
+      const video = await storage.createVideo({ ...videoData, userId: req.user!.id });
       res.status(201).json(video);
     } catch (error) {
       console.error("Error creating video:", error);
@@ -47,10 +143,10 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/videos/:id", async (req, res) => {
+  app.patch("/api/videos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const existingVideo = await storage.getVideo(id);
+      const existingVideo = await storage.getVideo(id, req.user!.id);
       if (!existingVideo) {
         return res.status(404).json({ error: "Video not found" });
       }
@@ -94,7 +190,7 @@ export async function registerRoutes(
         }
       }
 
-      const video = await storage.updateVideo(id, updateData);
+      const video = await storage.updateVideo(id, req.user!.id, updateData);
       res.json(video);
     } catch (error) {
       console.error("Error updating video:", error);
@@ -102,10 +198,10 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/videos/:id", async (req, res) => {
+  app.delete("/api/videos/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteVideo(id);
+      await storage.deleteVideo(id, req.user!.id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting video:", error);
@@ -113,10 +209,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/videos/:id/regenerate-captions", async (req, res) => {
+  app.post("/api/videos/:id/regenerate-captions", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const video = await storage.getVideo(id);
+      const video = await storage.getVideo(id, req.user!.id);
       if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
@@ -132,7 +228,7 @@ export async function registerRoutes(
       
       if (results.length > 0) {
         const result = results[0];
-        const updatedVideo = await storage.updateVideo(id, {
+        const updatedVideo = await storage.updateVideo(id, req.user!.id, {
           category: result.category,
           caption: result.captions[0]?.text || video.caption,
           captionTone: result.captions[0]?.tone || video.captionTone,
@@ -154,7 +250,7 @@ export async function registerRoutes(
   });
 
   // Batch Image Analysis with AI
-  app.post("/api/videos/batch-analyze", async (req, res) => {
+  app.post("/api/videos/batch-analyze", requireAuth, async (req, res) => {
     try {
       const { images } = req.body;
       
@@ -171,7 +267,7 @@ export async function registerRoutes(
   });
 
   // Batch Video Creation
-  app.post("/api/videos/batch", async (req, res) => {
+  app.post("/api/videos/batch", requireAuth, async (req, res) => {
     try {
       const { videos: videosData } = req.body;
       
@@ -179,7 +275,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "videos array is required" });
       }
 
-      const parsedVideos = videosData.map((v: any) => insertVideoSchema.parse(v));
+      const parsedVideos = videosData.map((v: any) => ({
+        ...insertVideoSchema.parse(v),
+        userId: req.user!.id
+      }));
       const createdVideos = await storage.createVideosBatch(parsedVideos);
       res.status(201).json(createdVideos);
     } catch (error) {
@@ -189,7 +288,7 @@ export async function registerRoutes(
   });
 
   // AI Caption Generation
-  app.post("/api/generate-captions", async (req, res) => {
+  app.post("/api/generate-captions", requireAuth, async (req, res) => {
     try {
       const { contentDescription, category } = req.body;
       
@@ -206,7 +305,7 @@ export async function registerRoutes(
   });
 
   // Analytics Chat
-  app.post("/api/analytics/chat", async (req, res) => {
+  app.post("/api/analytics/chat", requireAuth, async (req, res) => {
     try {
       const { query, analyticsData } = req.body;
       
@@ -223,9 +322,9 @@ export async function registerRoutes(
   });
 
   // Dashboard KPIs
-  app.get("/api/dashboard/kpis", async (req, res) => {
+  app.get("/api/dashboard/kpis", requireAuth, async (req, res) => {
     try {
-      const videos = await storage.getVideos();
+      const videos = await storage.getVideos(req.user!.id);
       const now = new Date();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
@@ -328,9 +427,9 @@ export async function registerRoutes(
   });
 
   // Strategy Settings Routes
-  app.get("/api/strategy", async (req, res) => {
+  app.get("/api/strategy", requireAuth, async (req, res) => {
     try {
-      const settings = await storage.getStrategySettings();
+      const settings = await storage.getStrategySettings(req.user!.id);
       res.json(settings || { dripFrequency: 5, categoryWeights: {} });
     } catch (error) {
       console.error("Error fetching strategy settings:", error);
@@ -338,10 +437,10 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/strategy", async (req, res) => {
+  app.post("/api/strategy", requireAuth, async (req, res) => {
     try {
       const settingsData = insertStrategySettingsSchema.parse(req.body);
-      const settings = await storage.upsertStrategySettings(settingsData);
+      const settings = await storage.upsertStrategySettings(req.user!.id, settingsData);
       res.json(settings);
     } catch (error) {
       console.error("Error saving strategy settings:", error);
@@ -350,9 +449,9 @@ export async function registerRoutes(
   });
 
   // Auto-schedule unscheduled content
-  app.post("/api/videos/auto-schedule", async (req, res) => {
+  app.post("/api/videos/auto-schedule", requireAuth, async (req, res) => {
     try {
-      const videos = await storage.getVideos();
+      const videos = await storage.getVideos(req.user!.id);
       const unscheduledDrafts = videos.filter(v => v.status === "draft" && !v.scheduledDate);
       
       if (unscheduledDrafts.length === 0) {
@@ -360,7 +459,7 @@ export async function registerRoutes(
       }
 
       // Get strategy settings for optimal scheduling
-      const strategy = await storage.getStrategySettings();
+      const strategy = await storage.getStrategySettings(req.user!.id);
       const postsPerWeek = strategy?.dripFrequency || 5;
 
       // Find existing scheduled slots (with hour granularity) to avoid conflicts
@@ -409,7 +508,7 @@ export async function registerRoutes(
 
         // Schedule this draft
         const scheduledDate = new Date(currentDate);
-        await storage.updateVideo(draft.id, {
+        await storage.updateVideo(draft.id, req.user!.id, {
           scheduledDate,
           status: "scheduled",
         });
@@ -437,9 +536,9 @@ export async function registerRoutes(
   });
 
   // Instagram Settings
-  app.get("/api/instagram/settings", async (req, res) => {
+  app.get("/api/instagram/settings", requireAuth, async (req, res) => {
     try {
-      const settings = await storage.getInstagramSettings();
+      const settings = await storage.getInstagramSettings(req.user!.id);
       res.json(settings || { isConnected: false });
     } catch (error) {
       console.error("Error fetching Instagram settings:", error);
@@ -447,7 +546,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/instagram/settings", async (req, res) => {
+  app.post("/api/instagram/settings", requireAuth, async (req, res) => {
     try {
       const { accessToken, businessAccountId, igUserId, autoPublish } = req.body;
       
@@ -455,7 +554,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Access token and Business Account ID are required" });
       }
 
-      const settings = await storage.upsertInstagramSettings({
+      const settings = await storage.upsertInstagramSettings(req.user!.id, {
         accessToken,
         businessAccountId,
         igUserId: igUserId || null,
@@ -469,7 +568,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/instagram/test", async (req, res) => {
+  app.post("/api/instagram/test", requireAuth, async (req, res) => {
     try {
       const { accessToken, businessAccountId } = req.body;
       
@@ -507,12 +606,12 @@ export async function registerRoutes(
   });
 
   // Toggle notification endpoint
-  app.post("/api/videos/:id/notify", async (req, res) => {
+  app.post("/api/videos/:id/notify", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { notifyMe } = req.body;
       
-      const video = await storage.getVideo(id);
+      const video = await storage.getVideo(id, req.user!.id);
       if (!video) {
         return res.status(404).json({ error: "Video not found" });
       }
@@ -546,7 +645,7 @@ export async function registerRoutes(
         }
       }
 
-      const updatedVideo = await storage.updateVideo(id, updateData);
+      const updatedVideo = await storage.updateVideo(id, req.user!.id, updateData);
       res.json(updatedVideo);
     } catch (error) {
       console.error("Error toggling notification:", error);
@@ -555,10 +654,10 @@ export async function registerRoutes(
   });
 
   // Instagram Publish Endpoints
-  app.post("/api/videos/:id/publish", async (req, res) => {
+  app.post("/api/videos/:id/publish", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const video = await storage.getVideo(id);
+      const video = await storage.getVideo(id, req.user!.id);
       
       if (!video) {
         return res.status(404).json({ error: "Video not found" });
@@ -576,7 +675,7 @@ export async function registerRoutes(
       );
 
       if (result.success) {
-        const updatedVideo = await storage.updateVideo(id, {
+        const updatedVideo = await storage.updateVideo(id, req.user!.id, {
           status: "posted",
           publishedDate: new Date(),
           instagramPostId: result.postId,
@@ -591,7 +690,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/scheduler/run", async (req, res) => {
+  app.post("/api/scheduler/run", requireAuth, async (req, res) => {
     try {
       const result = await checkAndPublishScheduledPosts();
       res.json(result);
