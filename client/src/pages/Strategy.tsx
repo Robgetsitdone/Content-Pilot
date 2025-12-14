@@ -3,13 +3,93 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { INITIAL_STRATEGY, CATEGORIES } from "@/lib/mockData";
-import { useState } from "react";
-import { BarChart, Activity, Zap, Layers, Cpu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CATEGORIES } from "@/lib/mockData";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { BarChart, Activity, Zap, Layers, Cpu, Calendar, Sparkles } from "lucide-react";
+
+async function apiRequest(method: string, url: string, data?: any) {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: data ? JSON.stringify(data) : undefined,
+  });
+  if (!res.ok) throw new Error("API error");
+  return res.json();
+}
+
+const STRATEGY_PRESETS: Record<string, Record<string, number>> = {
+  "Family Focus": { Family: 40, Parenting: 30, Lifestyle: 15, Entertainment: 10, General: 5 },
+  "Fitness Heavy": { Fitness: 40, "Gym + Life + Fitness": 30, Lifestyle: 15, Travel: 10, General: 5 },
+  "Balanced": { Family: 9, Parenting: 9, Fitness: 9, "Gym + Life + Fitness": 9, Travel: 9, Business: 9, Lifestyle: 9, Education: 9, Entertainment: 9, Food: 9, General: 10 },
+  "Business Mode": { Business: 40, Education: 30, Lifestyle: 15, Entertainment: 10, General: 5 },
+};
 
 export default function Strategy() {
-  const [weights, setWeights] = useState(INITIAL_STRATEGY.categoryWeights);
-  const [frequency, setFrequency] = useState([INITIAL_STRATEGY.dripFrequency]);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: strategyData } = useQuery({
+    queryKey: ["/api/strategy"],
+    queryFn: () => fetch("/api/strategy").then(r => r.json()),
+  });
+
+  const [weights, setWeights] = useState<Record<string, number>>({});
+  const [frequency, setFrequency] = useState([5]);
+
+  useEffect(() => {
+    if (strategyData) {
+      setWeights(strategyData.categoryWeights || {});
+      setFrequency([strategyData.dripFrequency || 5]);
+    }
+  }, [strategyData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/strategy", {
+        dripFrequency: frequency[0],
+        categoryWeights: weights,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/strategy"] });
+      toast({
+        title: "Strategy Saved",
+        description: "Your content strategy has been updated.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save strategy. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const autoScheduleMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/videos/auto-schedule", {});
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Auto-Scheduled!",
+        description: `Successfully scheduled ${data.scheduled || 0} posts based on your strategy.`,
+        duration: 5000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to auto-schedule posts. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleWeightChange = (category: string, value: number[]) => {
     setWeights(prev => ({
@@ -31,6 +111,27 @@ export default function Strategy() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8 space-y-12">
+          <div className="space-y-6 mb-12">
+            <div className="flex items-center gap-4 border-b border-white/10 pb-4">
+              <Sparkles className="w-6 h-6 text-white" />
+              <h3 className="font-display text-2xl font-bold uppercase tracking-tight">Quick Presets</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(STRATEGY_PRESETS).map(([name, preset]) => (
+                <Button
+                  key={name}
+                  variant="outline"
+                  className="h-14 rounded-none border-zinc-700 hover:bg-white hover:text-black font-mono text-xs uppercase tracking-wider"
+                  onClick={() => setWeights(preset)}
+                  data-testid={`preset-${name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  {name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-8">
              <div className="flex items-center gap-4 border-b border-white/10 pb-4">
                 <Layers className="w-6 h-6 text-white" />
@@ -110,6 +211,34 @@ export default function Strategy() {
                    <Switch className="data-[state=checked]:bg-white data-[state=unchecked]:bg-zinc-800 border border-zinc-700" />
                  </div>
                ))}
+            </div>
+          </div>
+
+          <div className="heavy-card p-6 bg-zinc-900/20 border-white/10">
+            <div className="flex items-center gap-3 mb-6">
+              <Calendar className="w-5 h-5 text-white" />
+              <h3 className="font-display text-xl font-bold uppercase">Actions</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <Button
+                className="w-full h-12 rounded-none bg-white text-black hover:bg-zinc-200 font-mono text-sm uppercase tracking-wider"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                data-testid="button-save-strategy"
+              >
+                {saveMutation.isPending ? "Saving..." : "Save Strategy"}
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full h-12 rounded-none border-purple-500/50 text-purple-400 hover:bg-purple-500/10 font-mono text-sm uppercase tracking-wider"
+                onClick={() => autoScheduleMutation.mutate()}
+                disabled={autoScheduleMutation.isPending}
+                data-testid="button-auto-schedule"
+              >
+                {autoScheduleMutation.isPending ? "Scheduling..." : "Auto-Schedule Drafts"}
+              </Button>
             </div>
           </div>
         </div>
