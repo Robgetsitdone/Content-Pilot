@@ -129,18 +129,39 @@ export interface ImageAnalysisResult {
   stickers: string[];
 }
 
+async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3): Promise<ImageAnalysisResult> {
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await analyzeSingleImage(base64, filename);
+      if (attempt > 1) {
+        console.log(`[Gemini Vision] Retry ${attempt} succeeded for ${filename}`);
+      }
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      console.log(`[Gemini Vision] Attempt ${attempt}/${maxRetries} failed for ${filename}: ${error?.message || error}`);
+      if (attempt < maxRetries) {
+        const delay = 1000 * attempt;
+        console.log(`[Gemini Vision] Waiting ${delay}ms before retry...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export async function analyzeImageBatch(images: Array<{ base64: string; filename: string }>): Promise<ImageAnalysisResult[]> {
   const results: ImageAnalysisResult[] = [];
   
   for (const image of images) {
     try {
-      const result = await analyzeSingleImage(image.base64, image.filename);
+      const result = await analyzeWithRetry(image.base64, image.filename, 3);
       console.log(`[Gemini Vision] Successfully analyzed ${image.filename}:`, result.category);
       results.push(result);
     } catch (error: any) {
-      console.error(`[Gemini Vision] FAILED to analyze ${image.filename}:`);
-      console.error(`[Gemini Vision] Error message:`, error?.message || error);
-      console.error(`[Gemini Vision] Full error:`, JSON.stringify(error, null, 2));
+      console.error(`[Gemini Vision] ALL RETRIES FAILED for ${image.filename}:`);
+      console.error(`[Gemini Vision] Final error:`, error?.message || error);
       results.push({
         filename: image.filename,
         category: "General",

@@ -3,7 +3,7 @@ import { type VideoStatus } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles, Bell, BellOff, Check, Loader2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Search, Plus, Wand2, UploadCloud, MoreHorizontal, Play, Calendar, Clock, ImageIcon, Video as VideoIcon, X, Music, Sparkles, Bell, BellOff, Check, Loader2, ChevronLeft, ChevronRight, Trash2, RefreshCw } from "lucide-react";
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { CaptionGenerator } from "@/components/CaptionGenerator";
@@ -237,7 +237,7 @@ const VideoDetailModal = ({ video, isOpen, onClose, onNotifyToggle }: {
   );
 };
 
-const VideoCard = ({ video, onOpen, deleteMutation }: { video: Video; onOpen: (video: Video) => void; deleteMutation: any }) => {
+const VideoCard = ({ video, onOpen, deleteMutation, regenerateMutation }: { video: Video; onOpen: (video: Video) => void; deleteMutation: any; regenerateMutation: any }) => {
   const hasMedia = video.mediaUrl && video.mediaUrl !== "bg-zinc-900";
   const isImage = video.mediaType === "image";
   
@@ -345,7 +345,7 @@ const VideoCard = ({ video, onOpen, deleteMutation }: { video: Video; onOpen: (v
             )}
           </div>
           
-          <div className="grid grid-cols-3 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="grid grid-cols-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <Button 
               size="sm" 
               variant="outline" 
@@ -354,6 +354,19 @@ const VideoCard = ({ video, onOpen, deleteMutation }: { video: Video; onOpen: (v
               data-testid={`button-edit-${video.id}`}
             >
               Edit
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="h-9 rounded-none border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-700 text-purple-400 hover:text-purple-300 font-mono text-xs uppercase tracking-wider"
+              onClick={(e) => {
+                e.stopPropagation();
+                regenerateMutation.mutate(video.id);
+              }}
+              disabled={regenerateMutation.isPending}
+              data-testid={`button-regenerate-${video.id}`}
+            >
+              <RefreshCw className={`w-3 h-3 ${regenerateMutation.isPending ? 'animate-spin' : ''}`} />
             </Button>
             <Button 
               size="sm" 
@@ -447,6 +460,28 @@ export default function Library() {
       toast({
         title: "Error",
         description: "Failed to delete post",
+        variant: "destructive",
+        duration: 3000,
+      });
+    },
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: async (videoId: number) => {
+      return apiRequest("POST", `/api/videos/${videoId}/regenerate-captions`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/videos"] });
+      toast({
+        title: "Captions Regenerated",
+        description: "AI has generated new captions for your content.",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate captions. Please try again.",
         variant: "destructive",
         duration: 3000,
       });
@@ -1079,6 +1114,7 @@ export default function Library() {
               key={video.id} 
               video={video}
               deleteMutation={deleteMutation}
+              regenerateMutation={regenerateMutation}
               onOpen={(video) => {
                 setSelectedVideo(video);
                 setIsDetailOpen(true);

@@ -113,6 +113,46 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/videos/:id/regenerate-captions", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const video = await storage.getVideo(id);
+      if (!video) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+      
+      if (!video.mediaUrl) {
+        return res.status(400).json({ error: "No media to analyze" });
+      }
+      
+      const results = await analyzeImageBatch([{
+        base64: video.mediaUrl,
+        filename: video.title || "image.jpg"
+      }]);
+      
+      if (results.length > 0) {
+        const result = results[0];
+        const updatedVideo = await storage.updateVideo(id, {
+          category: result.category,
+          caption: result.captions[0]?.text || video.caption,
+          captionTone: result.captions[0]?.tone || video.captionTone,
+          aiData: {
+            captions: result.captions,
+            extendedPost: result.extendedPost,
+            music: result.music,
+            stickers: result.stickers
+          }
+        });
+        return res.json(updatedVideo);
+      }
+      
+      res.status(500).json({ error: "Failed to analyze image" });
+    } catch (error) {
+      console.error("Error regenerating captions:", error);
+      res.status(500).json({ error: "Failed to regenerate captions" });
+    }
+  });
+
   // Batch Image Analysis with AI
   app.post("/api/videos/batch-analyze", async (req, res) => {
     try {
