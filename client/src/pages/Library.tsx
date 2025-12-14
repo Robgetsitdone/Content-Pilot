@@ -369,7 +369,7 @@ const VideoCard = ({ video, onOpen, deleteMutation }: { video: Video; onOpen: (v
               className="h-9 rounded-none border-red-900/50 hover:bg-red-900/20 hover:border-red-700 text-red-400 hover:text-red-300 font-mono text-xs uppercase tracking-wider"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(video.id);
+                deleteMutation.mutate(video.id);
               }}
               disabled={deleteMutation.isPending}
               data-testid={`button-delete-${video.id}`}
