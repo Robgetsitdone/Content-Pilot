@@ -4,6 +4,15 @@
 
 Creator Pulse is an AI-powered content strategy and drip scheduling platform for social media content creators. The application helps users manage video content, generate AI-powered captions using Google's Gemini API, schedule posts, and analyze content performance. It features a dark, modern UI designed for content creators who want to streamline their social media workflow.
 
+## Authentication
+
+The app uses secure email/password authentication with the following features:
+- **Sign up**: Create account with email, password (min 8 chars), and display name
+- **Sign in**: Login with email and password
+- **Session management**: Secure httpOnly cookies with PostgreSQL session store
+- **Protected routes**: All /api/* routes (except /api/auth/*) require authentication
+- **Data isolation**: Each user only sees their own content - videos, settings, and connections are completely private
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
