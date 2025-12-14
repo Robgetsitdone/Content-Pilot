@@ -7,6 +7,7 @@ export interface IStorage {
   getVideos(): Promise<Video[]>;
   getVideo(id: number): Promise<Video | undefined>;
   createVideo(video: InsertVideo): Promise<Video>;
+  createVideosBatch(videos: InsertVideo[]): Promise<Video[]>;
   updateVideo(id: number, video: Partial<InsertVideo>): Promise<Video | undefined>;
   deleteVideo(id: number): Promise<void>;
   getScheduledPostsReady(): Promise<Video[]>;
@@ -47,6 +48,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteVideo(id: number): Promise<void> {
     await db.delete(videos).where(eq(videos.id, id));
+  }
+
+  async createVideosBatch(videosData: InsertVideo[]): Promise<Video[]> {
+    if (videosData.length === 0) return [];
+    const result = await db.insert(videos).values(videosData as any[]).returning();
+    return result;
   }
 
   // Strategy Settings

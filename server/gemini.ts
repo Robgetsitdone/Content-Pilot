@@ -110,6 +110,125 @@ Return ONLY valid JSON with no markdown:
   }
 }
 
+const CATEGORIES = [
+  "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel", 
+  "Business", "Lifestyle", "Education", "Entertainment", "Food", "General"
+];
+
+export interface ImageAnalysisResult {
+  filename: string;
+  category: string;
+  captions: Array<{
+    id: string;
+    tone: string;
+    text: string;
+    hashtags: string[];
+  }>;
+  extendedPost: string;
+  music: string[];
+  stickers: string[];
+}
+
+export async function analyzeImageBatch(images: Array<{ base64: string; filename: string }>): Promise<ImageAnalysisResult[]> {
+  const results: ImageAnalysisResult[] = [];
+  
+  for (const image of images) {
+    try {
+      const result = await analyzeSingleImage(image.base64, image.filename);
+      results.push(result);
+    } catch (error) {
+      console.error(`Failed to analyze ${image.filename}:`, error);
+      results.push({
+        filename: image.filename,
+        category: "General",
+        captions: [
+          { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
+          { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
+          { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
+        ],
+        extendedPost: "Check out what I've been working on...",
+        music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
+        stickers: ["🔥", "💯", "✨"]
+      });
+    }
+  }
+  
+  return results;
+}
+
+async function analyzeSingleImage(base64: string, filename: string): Promise<ImageAnalysisResult> {
+  const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+  
+  const prompt = `Analyze this image for an Instagram content creator. 
+
+${VOICE_GUIDELINES}
+
+Categories to choose from: ${CATEGORIES.join(", ")}
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "category": "detected category from the list above",
+  "captions": [
+    {"id": "c1", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]},
+    {"id": "c2", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]},
+    {"id": "c3", "tone": "tone name", "text": "caption under 50 words", "hashtags": ["#tag1", "#tag2", "#tag3"]}
+  ],
+  "extendedPost": "extended caption under 100 words",
+  "music": ["song/genre 1", "song/genre 2", "song/genre 3"],
+  "stickers": ["emoji1", "emoji2", "emoji3"]
+}`;
+
+  const result = await genAI.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          { 
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: cleanBase64
+            }
+          }
+        ]
+      }
+    ],
+    config: {
+      temperature: 0.7,
+      maxOutputTokens: 2048,
+    }
+  });
+  
+  const text = result.text || "";
+  
+  let cleanedText = text
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+  
+  const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("Failed to extract JSON from Gemini response");
+  }
+  
+  let jsonStr = jsonMatch[0]
+    .replace(/[\x00-\x1F\x7F]/g, ' ')
+    .replace(/,\s*}/g, '}')
+    .replace(/,\s*]/g, ']');
+  
+  const parsed = JSON.parse(jsonStr);
+  
+  return {
+    filename,
+    category: CATEGORIES.includes(parsed.category) ? parsed.category : "General",
+    captions: parsed.captions || [],
+    extendedPost: parsed.extendedPost || "",
+    music: parsed.music || [],
+    stickers: parsed.stickers || []
+  };
+}
+
 export async function analyzeContent(query: string, analyticsData: any) {
   const prompt = `You are a content strategy analyst. The user is asking: "${query}"
 

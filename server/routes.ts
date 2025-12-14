@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema } from "@shared/schema";
-import { generateCaptions, analyzeContent } from "./gemini";
+import { generateCaptions, analyzeContent, analyzeImageBatch } from "./gemini";
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
 import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
 
@@ -110,6 +110,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting video:", error);
       res.status(500).json({ error: "Failed to delete video" });
+    }
+  });
+
+  // Batch Image Analysis with AI
+  app.post("/api/videos/batch-analyze", async (req, res) => {
+    try {
+      const { images } = req.body;
+      
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ error: "images array is required" });
+      }
+
+      const results = await analyzeImageBatch(images);
+      res.json({ results });
+    } catch (error) {
+      console.error("Error analyzing images:", error);
+      res.status(500).json({ error: "Failed to analyze images" });
+    }
+  });
+
+  // Batch Video Creation
+  app.post("/api/videos/batch", async (req, res) => {
+    try {
+      const { videos: videosData } = req.body;
+      
+      if (!videosData || !Array.isArray(videosData) || videosData.length === 0) {
+        return res.status(400).json({ error: "videos array is required" });
+      }
+
+      const parsedVideos = videosData.map((v: any) => insertVideoSchema.parse(v));
+      const createdVideos = await storage.createVideosBatch(parsedVideos);
+      res.status(201).json(createdVideos);
+    } catch (error) {
+      console.error("Error creating videos batch:", error);
+      res.status(400).json({ error: "Invalid video data" });
     }
   });
 
