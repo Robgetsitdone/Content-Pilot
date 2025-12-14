@@ -204,27 +204,42 @@ Return ONLY valid JSON (no markdown, no code blocks):
     config: {
       temperature: 0.7,
       maxOutputTokens: 2048,
+      responseMimeType: "application/json",
     }
   });
   
   const text = result.text || "";
+  console.log(`[Gemini Vision] Raw response for ${filename}:`, text.substring(0, 300));
   
-  let cleanedText = text
-    .replace(/```json\s*/gi, '')
-    .replace(/```\s*/g, '')
-    .trim();
-  
-  const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Failed to extract JSON from Gemini response");
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (parseError: any) {
+    console.error(`[Gemini Vision] JSON parse error for ${filename}:`, parseError.message);
+    
+    let cleanedText = text
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    
+    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      let jsonStr = jsonMatch[0]
+        .replace(/[\x00-\x1F\x7F]/g, ' ')
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']');
+      
+      try {
+        parsed = JSON.parse(jsonStr);
+        console.log(`[Gemini Vision] Fallback parsing succeeded for ${filename}`);
+      } catch (e) {
+        console.error(`[Gemini Vision] Fallback parsing also failed for ${filename}`);
+        throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
+      }
+    } else {
+      throw new Error(`No JSON found in Gemini response: ${parseError.message}`);
+    }
   }
-  
-  let jsonStr = jsonMatch[0]
-    .replace(/[\x00-\x1F\x7F]/g, ' ')
-    .replace(/,\s*}/g, '}')
-    .replace(/,\s*]/g, ']');
-  
-  const parsed = JSON.parse(jsonStr);
   
   return {
     filename,
