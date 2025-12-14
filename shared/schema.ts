@@ -89,8 +89,11 @@ export const loginSchema = z.object({
 
 export const insertVideoSchema = createInsertSchema(videos).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  thumbnail: z.string().optional(),
 });
 
 export const insertStrategySettingsSchema = createInsertSchema(strategySettings).omit({

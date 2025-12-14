@@ -6,8 +6,8 @@ export interface IStorage {
   // Videos
   getVideos(userId: string): Promise<Video[]>;
   getVideo(id: number, userId: string): Promise<Video | undefined>;
-  createVideo(video: InsertVideo): Promise<Video>;
-  createVideosBatch(videos: InsertVideo[]): Promise<Video[]>;
+  createVideo(video: InsertVideo & { userId: string }): Promise<Video>;
+  createVideosBatch(videos: (InsertVideo & { userId: string })[]): Promise<Video[]>;
   updateVideo(id: number, userId: string, video: Partial<InsertVideo>): Promise<Video | undefined>;
   deleteVideo(id: number, userId: string): Promise<void>;
   getScheduledPostsReady(): Promise<Video[]>;
@@ -34,8 +34,12 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async createVideo(video: InsertVideo): Promise<Video> {
-    const result = await db.insert(videos).values(video as any).returning();
+  async createVideo(video: InsertVideo & { userId: string }): Promise<Video> {
+    const videoData = {
+      ...video,
+      thumbnail: video.thumbnail || "",
+    };
+    const result = await db.insert(videos).values(videoData as any).returning();
     return result[0];
   }
 
@@ -52,9 +56,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(videos).where(and(eq(videos.id, id), eq(videos.userId, userId)));
   }
 
-  async createVideosBatch(videosData: InsertVideo[]): Promise<Video[]> {
+  async createVideosBatch(videosData: (InsertVideo & { userId: string })[]): Promise<Video[]> {
     if (videosData.length === 0) return [];
-    const result = await db.insert(videos).values(videosData as any[]).returning();
+    const processedVideos = videosData.map(v => ({
+      ...v,
+      thumbnail: v.thumbnail || "",
+    }));
+    const result = await db.insert(videos).values(processedVideos as any[]).returning();
     return result;
   }
 
