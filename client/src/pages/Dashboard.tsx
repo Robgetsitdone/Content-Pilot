@@ -2,6 +2,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { UploadModal } from "@/components/UploadModal";
 import { 
   ArrowUpRight, 
   ArrowDownRight,
@@ -240,13 +241,16 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <header className="flex flex-col gap-4 mb-12">
-        <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-[0.85]">
-          Command<br/><span className="text-zinc-700">Center</span>
-        </h1>
-        <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
-          Your Content Output & Performance Dashboard
-        </p>
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+        <div>
+          <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-[0.85]">
+            Command<br/><span className="text-zinc-700">Center</span>
+          </h1>
+          <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
+            Your Content Output & Performance Dashboard
+          </p>
+        </div>
+        <UploadModal />
       </header>
 
       {/* TOP BAR - Output You Control */}
