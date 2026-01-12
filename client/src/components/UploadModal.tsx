@@ -369,16 +369,49 @@ export function UploadModal() {
               </div>
             </div>
             <div className="text-center space-y-3">
-              <h3 className="font-display text-2xl font-bold text-white uppercase">Analyzing Images</h3>
+              <h3 className="font-display text-2xl font-bold text-white uppercase">Deep AI Analysis</h3>
               <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
-                Processing {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} with Gemini Vision...
+                Individually processing {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''}...
               </p>
-              <div className="flex items-center justify-center gap-2 text-primary font-mono text-sm">
-                <span>Detecting categories, generating captions & music suggestions</span>
-              </div>
             </div>
-            <div className="w-full max-w-xs bg-zinc-900 h-2">
-              <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full animate-pulse" style={{ width: '60%' }} />
+            
+            <div className="w-full max-w-md space-y-4">
+              <div className="p-4 border border-primary/30 bg-primary/5 space-y-3">
+                <h4 className="font-mono text-xs text-primary uppercase tracking-widest text-center">Each image receives full analysis:</h4>
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>3 unique caption tones</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>Extended post content</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>3 music recommendations</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>Sticker suggestions</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>Custom hashtags per tone</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span>Category auto-detection</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-zinc-900 h-2 overflow-hidden">
+                <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full animate-[loading_2s_ease-in-out_infinite]" style={{ width: '100%' }} />
+              </div>
+              <p className="font-mono text-[10px] text-zinc-600 text-center uppercase">
+                ~5-10 seconds per image for full depth analysis
+              </p>
             </div>
           </div>
         )}
@@ -469,14 +502,26 @@ export function UploadModal() {
                         </div>
                       </div>
 
+                      {/* Extended Post */}
+                      {result.extendedPost && (
+                        <div className="space-y-2">
+                          <label className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-400" /> Extended Post
+                          </label>
+                          <div className="p-3 bg-zinc-900 border border-amber-500/30 text-[11px] font-mono text-zinc-300 leading-relaxed">
+                            {result.extendedPost}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-                            <Music className="w-3 h-3" /> Music
+                            <Music className="w-3 h-3 text-cyan-400" /> Music ({result.music.length})
                           </label>
                           <div className="space-y-1">
-                            {result.music.slice(0, 2).map((track, i) => (
-                              <div key={i} className="p-2 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400 truncate">
+                            {result.music.map((track, i) => (
+                              <div key={i} className="p-2 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400">
                                 {track}
                               </div>
                             ))}
@@ -484,7 +529,7 @@ export function UploadModal() {
                         </div>
                         <div className="space-y-2">
                           <label className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" /> Stickers
+                            <Sparkles className="w-3 h-3 text-purple-400" /> Stickers ({result.stickers.length})
                           </label>
                           <div className="flex flex-wrap gap-1">
                             {result.stickers.map((sticker, i) => (
