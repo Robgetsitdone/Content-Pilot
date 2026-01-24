@@ -22,7 +22,10 @@ import {
   Play,
   Lightbulb,
   RefreshCw,
-  Flame
+  Flame,
+  UploadCloud,
+  Wand2,
+  Plus
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -241,7 +244,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-8">
         <div>
           <h1 className="font-display text-6xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-[0.85]">
             Command<br/><span className="text-zinc-700">Center</span>
@@ -252,6 +255,36 @@ export default function Dashboard() {
         </div>
         <UploadModal />
       </header>
+
+      <section className="mb-12">
+        <UploadModal 
+          trigger={
+            <button 
+              className="w-full group relative overflow-hidden border-2 border-dashed border-primary/40 hover:border-primary bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 hover:from-violet-500/10 hover:to-fuchsia-500/10 transition-all duration-300 p-8 cursor-pointer"
+              data-testid="button-quick-upload"
+            >
+              <div className="flex items-center justify-center gap-6">
+                <div className="w-16 h-16 border-2 border-dashed border-primary/60 group-hover:border-primary flex items-center justify-center transition-all group-hover:scale-110">
+                  <UploadCloud className="w-8 h-8 text-primary/80 group-hover:text-primary transition-colors" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h3 className="font-display text-2xl font-bold text-white uppercase">Quick Upload</h3>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 border border-primary/30">
+                      <Wand2 className="w-3 h-3 text-primary" />
+                      <span className="font-mono text-[10px] text-primary uppercase">AI Powered</span>
+                    </div>
+                  </div>
+                  <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
+                    Drop images here for instant AI analysis & caption generation
+                  </p>
+                </div>
+                <Plus className="w-10 h-10 text-primary/50 group-hover:text-primary transition-colors ml-auto" />
+              </div>
+            </button>
+          }
+        />
+      </section>
 
       {/* TOP BAR - Output You Control */}
       <section className="mb-12">

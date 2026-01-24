@@ -34,7 +34,11 @@ interface AnalysisResult {
   stickers: string[];
 }
 
-export function UploadModal() {
+interface UploadModalProps {
+  trigger?: React.ReactNode;
+}
+
+export function UploadModal({ trigger }: UploadModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -248,12 +252,14 @@ export function UploadModal() {
       if (!open) resetUploadState(); 
     }}>
       <DialogTrigger asChild>
-        <Button className="h-12 px-8 rounded-none bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-display font-bold text-lg tracking-tight" data-testid="button-upload">
-          <Plus className="w-5 h-5 mr-2" />
-          UPLOAD ASSET
-        </Button>
+        {trigger || (
+          <Button className="h-12 px-8 rounded-none bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-display font-bold text-lg tracking-tight" data-testid="button-upload">
+            <Plus className="w-5 h-5 mr-2" />
+            UPLOAD ASSET
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className={`${uploadStage === "results" ? "sm:max-w-5xl max-h-[90vh]" : "sm:max-w-xl"} bg-[#0a0a0a] border border-white/10 p-0 gap-0 overflow-hidden`}>
+      <DialogContent className={`${uploadStage === "results" ? "sm:max-w-5xl max-h-[90vh] h-[90vh]" : "sm:max-w-xl max-h-[85vh]"} bg-[#0a0a0a] border border-white/10 p-0 gap-0 overflow-hidden flex flex-col`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -359,7 +365,7 @@ export function UploadModal() {
         )}
 
         {uploadStage === "processing" && (
-          <div className="p-12 flex flex-col items-center justify-center min-h-[400px] gap-8">
+          <div className="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] gap-6 sm:gap-8 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="relative">
               <div className="w-24 h-24 border-2 border-primary/30 flex items-center justify-center">
                 <Wand2 className="w-10 h-10 text-primary animate-pulse" />
@@ -417,7 +423,7 @@ export function UploadModal() {
         )}
 
         {uploadStage === "results" && (
-          <div className="flex flex-col h-full max-h-[85vh]">
+          <div className="flex flex-col h-full min-h-0 overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <div>
                 <h3 className="font-display text-xl font-bold text-white uppercase flex items-center gap-2">
@@ -439,8 +445,8 @@ export function UploadModal() {
               </Button>
             </div>
             
-            <ScrollArea className="flex-1 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ScrollArea className="flex-1 min-h-0 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                 {analysisResults.map((result, index) => (
                   <div key={index} className="border border-zinc-800 bg-zinc-950/50 overflow-hidden" data-testid={`result-card-${index}`}>
                     <div className="aspect-video bg-zinc-900 relative overflow-hidden">
