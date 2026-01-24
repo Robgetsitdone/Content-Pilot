@@ -181,7 +181,18 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
 }
 
 async function analyzeSingleImage(base64: string, filename: string): Promise<ImageAnalysisResult> {
-  const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+  let cleanBase64 = base64;
+  let mimeType = "image/jpeg";
+  
+  if (base64.startsWith('data:')) {
+    const match = base64.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      mimeType = match[1];
+      cleanBase64 = match[2];
+    } else {
+      cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+    }
+  }
   
   const prompt = `Analyze this specific image carefully for an Instagram content creator. Describe what you see in the image and create unique, personalized captions based on the actual visual content.
 
@@ -204,7 +215,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "stickers": ["relevant emoji", "another emoji", "third emoji"]
 }`;
 
-  console.log(`[Gemini Vision] Analyzing image: ${filename}`);
+  console.log(`[Gemini Vision] Analyzing image: ${filename}, mimeType: ${mimeType}, base64 length: ${cleanBase64.length}`);
   
   const result = await genAI.models.generateContent({
     model: MODEL,
@@ -215,7 +226,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
           { text: prompt },
           { 
             inlineData: {
-              mimeType: "image/jpeg",
+              mimeType: mimeType,
               data: cleanBase64
             }
           }
@@ -225,7 +236,6 @@ Return ONLY valid JSON (no markdown, no code blocks):
     config: {
       temperature: 0.7,
       maxOutputTokens: 2048,
-      responseMimeType: "application/json",
     }
   });
   

@@ -254,15 +254,19 @@ export async function registerRoutes(
     try {
       const { images } = req.body;
       
+      console.log("[batch-analyze] Received request with", images?.length || 0, "images");
+      
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ error: "images array is required" });
       }
 
       const results = await analyzeImageBatch(images);
+      console.log("[batch-analyze] Successfully analyzed", results.length, "images");
       res.json({ results });
-    } catch (error) {
-      console.error("Error analyzing images:", error);
-      res.status(500).json({ error: "Failed to analyze images" });
+    } catch (error: any) {
+      console.error("[batch-analyze] Error analyzing images:", error?.message || error);
+      console.error("[batch-analyze] Full error:", JSON.stringify(error, null, 2));
+      res.status(500).json({ error: "Failed to analyze images", details: error?.message });
     }
   });
 
