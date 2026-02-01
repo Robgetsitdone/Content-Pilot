@@ -451,6 +451,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
     setSelectedFiles([]);
     setAnalysisResults([]);
     setUploadStage("selecting");
+    setGenerationNote("");
     setIsSaving(false);
     setStreamProgress({ completed: 0, total: 0, currentFile: "" });
   };
