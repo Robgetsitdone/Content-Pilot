@@ -611,18 +611,24 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 </div>
               </div>
 
-              <div className="p-4 border border-cyan-500/30 bg-cyan-500/5 space-y-2">
-                <p className="font-mono text-xs text-zinc-300 text-center">
-                  {uploadProgress.percent < 50 
-                    ? "Reading your files and preparing them for analysis..."
-                    : uploadProgress.percent < 95
-                    ? "Almost there! Finishing up file preparation..."
-                    : "Connecting to AI service for analysis..."
-                  }
-                </p>
-                <p className="font-mono text-[10px] text-zinc-500 text-center">
-                  Your content will be analyzed by Gemini Vision AI
-                </p>
+              <div className="p-4 border border-cyan-500/30 bg-cyan-500/5 space-y-4">
+                <h4 className="font-mono text-xs text-cyan-400 uppercase tracking-widest text-center">
+                  What we're creating for you
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <Sparkles className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                    <span className="text-zinc-300">3 unique caption styles with custom hashtags</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <Music className="w-4 h-4 text-fuchsia-400 flex-shrink-0" />
+                    <span className="text-zinc-300">Music recommendations matching your vibe</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <Wand2 className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                    <span className="text-zinc-300">Auto category detection & sticker suggestions</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
