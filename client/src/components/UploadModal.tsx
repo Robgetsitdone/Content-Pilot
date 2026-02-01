@@ -210,20 +210,40 @@ export function UploadModal({ trigger }: UploadModalProps) {
     setStreamProgress({ completed: 0, total: selectedFiles.length, currentFile: selectedFiles[0]?.name || "" });
 
     try {
-      // Compress images in parallel before sending
-      console.log(`[Upload] Compressing ${selectedFiles.length} images...`);
-      const compressionStart = Date.now();
+      // Process files - compress images, read videos directly
+      console.log(`[Upload] Processing ${selectedFiles.length} files...`);
+      const processingStart = Date.now();
 
-      const imagePromises = selectedFiles.map(async (file) => {
-        const base64 = await compressImage(file, 1920, 0.85);
-        return {
-          base64,
-          filename: file.name,
-        };
+      const filePromises = selectedFiles.map(async (file) => {
+        // Check if it's a video file
+        const isVideo = file.type.startsWith('video/');
+        
+        if (isVideo) {
+          // Read video directly as base64 (no compression)
+          return new Promise<{ base64: string; filename: string }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              console.log(`[Upload] Video file ready: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+              resolve({
+                base64: reader.result as string,
+                filename: file.name,
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        } else {
+          // Compress images
+          const base64 = await compressImage(file, 1920, 0.85);
+          return {
+            base64,
+            filename: file.name,
+          };
+        }
       });
 
-      const images = await Promise.all(imagePromises);
-      console.log(`[Upload] Compression complete in ${((Date.now() - compressionStart) / 1000).toFixed(1)}s`);
+      const images = await Promise.all(filePromises);
+      console.log(`[Upload] Processing complete in ${((Date.now() - processingStart) / 1000).toFixed(1)}s`);
 
       // Use streaming endpoint for progressive results
       const response = await fetch("/api/videos/batch-analyze-stream", {
