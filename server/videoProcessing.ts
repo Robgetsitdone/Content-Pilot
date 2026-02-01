@@ -26,13 +26,24 @@ export async function extractVideoFrame(videoBase64: string): Promise<VideoFrame
   await ensureTempDir();
   
   const id = randomUUID();
-  const videoPath = join(TEMP_DIR, `${id}.mp4`);
+  // Determine extension from mime type
+  let extension = '.mp4';
+  if (videoBase64.includes('video/quicktime')) {
+    extension = '.mov';
+  } else if (videoBase64.includes('video/webm')) {
+    extension = '.webm';
+  } else if (videoBase64.includes('video/x-msvideo')) {
+    extension = '.avi';
+  }
+  
+  const videoPath = join(TEMP_DIR, `${id}${extension}`);
   const framePath = join(TEMP_DIR, `${id}_frame.jpg`);
   
   try {
     let cleanBase64 = videoBase64;
     if (videoBase64.startsWith('data:')) {
-      cleanBase64 = videoBase64.replace(/^data:video\/\w+;base64,/, '');
+      // Handle all video mime types including quicktime, webm, etc.
+      cleanBase64 = videoBase64.replace(/^data:video\/[^;]+;base64,/, '');
     }
     
     const videoBuffer = Buffer.from(cleanBase64, 'base64');
