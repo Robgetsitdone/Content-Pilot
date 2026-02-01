@@ -111,9 +111,43 @@ Return ONLY valid JSON with no markdown:
 }
 
 const CATEGORIES = [
-  "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel", 
+  "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel",
   "Business", "Lifestyle", "Education", "Entertainment", "Food", "General"
 ];
+
+// Concurrency limiter for parallel API calls
+const CONCURRENCY_LIMIT = 3;
+
+function createConcurrencyLimiter(limit: number) {
+  let running = 0;
+  const queue: Array<() => void> = [];
+
+  return async function<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const run = async () => {
+        running++;
+        try {
+          const result = await fn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        } finally {
+          running--;
+          if (queue.length > 0) {
+            const next = queue.shift();
+            next?.();
+          }
+        }
+      };
+
+      if (running < limit) {
+        run();
+      } else {
+        queue.push(run);
+      }
+    });
+  };
+}
 
 export interface ImageAnalysisResult {
   filename: string;
@@ -152,31 +186,41 @@ async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3
 }
 
 export async function analyzeImageBatch(images: Array<{ base64: string; filename: string }>): Promise<ImageAnalysisResult[]> {
-  const results: ImageAnalysisResult[] = [];
-  
-  for (const image of images) {
-    try {
-      const result = await analyzeWithRetry(image.base64, image.filename, 3);
-      console.log(`[Gemini Vision] Successfully analyzed ${image.filename}:`, result.category);
-      results.push(result);
-    } catch (error: any) {
-      console.error(`[Gemini Vision] ALL RETRIES FAILED for ${image.filename}:`);
-      console.error(`[Gemini Vision] Final error:`, error?.message || error);
-      results.push({
-        filename: image.filename,
-        category: "General",
-        captions: [
-          { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
-          { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
-          { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
-        ],
-        extendedPost: "Check out what I've been working on...",
-        music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
-        stickers: ["🔥", "💯", "✨"]
-      });
-    }
-  }
-  
+  const limiter = createConcurrencyLimiter(CONCURRENCY_LIMIT);
+
+  console.log(`[Gemini Vision] Starting parallel analysis of ${images.length} images (max ${CONCURRENCY_LIMIT} concurrent)`);
+  const startTime = Date.now();
+
+  const analysisPromises = images.map((image, index) =>
+    limiter(async () => {
+      try {
+        const result = await analyzeWithRetry(image.base64, image.filename, 3);
+        console.log(`[Gemini Vision] [${index + 1}/${images.length}] Successfully analyzed ${image.filename}: ${result.category}`);
+        return result;
+      } catch (error: any) {
+        console.error(`[Gemini Vision] [${index + 1}/${images.length}] ALL RETRIES FAILED for ${image.filename}:`);
+        console.error(`[Gemini Vision] Final error:`, error?.message || error);
+        return {
+          filename: image.filename,
+          category: "General",
+          captions: [
+            { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
+            { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
+            { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
+          ],
+          extendedPost: "Check out what I've been working on...",
+          music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
+          stickers: ["🔥", "💯", "✨"]
+        } as ImageAnalysisResult;
+      }
+    })
+  );
+
+  const results = await Promise.all(analysisPromises);
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[Gemini Vision] Completed ${results.length} images in ${elapsed}s (parallel processing)`);
+
   return results;
 }
 
@@ -280,6 +324,76 @@ Return ONLY valid JSON (no markdown, no code blocks):
     music: parsed.music || [],
     stickers: parsed.stickers || []
   };
+}
+
+// Streaming version that yields results as they complete
+export async function* analyzeImageBatchStreaming(
+  images: Array<{ base64: string; filename: string }>
+): AsyncGenerator<{ index: number; total: number; result: ImageAnalysisResult }> {
+  const limiter = createConcurrencyLimiter(CONCURRENCY_LIMIT);
+  const total = images.length;
+
+  console.log(`[Gemini Vision] Starting streaming analysis of ${total} images (max ${CONCURRENCY_LIMIT} concurrent)`);
+  const startTime = Date.now();
+
+  // Create array to track completion order
+  const completionQueue: Array<{ index: number; result: ImageAnalysisResult }> = [];
+  let nextToYield = 0;
+  let resolveWait: (() => void) | null = null;
+
+  // Start all analyses
+  const analysisPromises = images.map((image, index) =>
+    limiter(async () => {
+      try {
+        const result = await analyzeWithRetry(image.base64, image.filename, 3);
+        console.log(`[Gemini Vision] [${index + 1}/${total}] Completed ${image.filename}: ${result.category}`);
+        return { index, result };
+      } catch (error: any) {
+        console.error(`[Gemini Vision] [${index + 1}/${total}] FAILED ${image.filename}:`, error?.message);
+        return {
+          index,
+          result: {
+            filename: image.filename,
+            category: "General",
+            captions: [
+              { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
+              { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
+              { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
+            ],
+            extendedPost: "Check out what I've been working on...",
+            music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
+            stickers: ["🔥", "💯", "✨"]
+          } as ImageAnalysisResult
+        };
+      }
+    }).then((completed) => {
+      completionQueue.push(completed);
+      completionQueue.sort((a, b) => a.index - b.index);
+      if (resolveWait) resolveWait();
+    })
+  );
+
+  // Yield results in order as they complete
+  while (nextToYield < total) {
+    // Check if we have the next result ready
+    const readyIndex = completionQueue.findIndex(item => item.index === nextToYield);
+    if (readyIndex !== -1) {
+      const { index, result } = completionQueue.splice(readyIndex, 1)[0];
+      yield { index, total, result };
+      nextToYield++;
+    } else {
+      // Wait for more results
+      await new Promise<void>((resolve) => {
+        resolveWait = resolve;
+      });
+    }
+  }
+
+  // Wait for all to complete
+  await Promise.all(analysisPromises);
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[Gemini Vision] Streaming complete: ${total} images in ${elapsed}s`);
 }
 
 export async function analyzeContent(query: string, analyticsData: any) {

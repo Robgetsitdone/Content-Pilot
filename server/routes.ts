@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSettingsSchema, signupSchema, loginSchema } from "@shared/schema";
-import { generateCaptions, analyzeContent, analyzeImageBatch } from "./gemini";
+import { generateCaptions, analyzeContent, analyzeImageBatch, analyzeImageBatchStreaming } from "./gemini";
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
 import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
 import { requireAuth, hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId } from "./auth";
@@ -267,6 +267,45 @@ export async function registerRoutes(
       console.error("[batch-analyze] Error analyzing images:", error?.message || error);
       console.error("[batch-analyze] Full error:", JSON.stringify(error, null, 2));
       res.status(500).json({ error: "Failed to analyze images", details: error?.message });
+    }
+  });
+
+  // Streaming Batch Image Analysis - yields results as they complete
+  app.post("/api/videos/batch-analyze-stream", requireAuth, async (req, res) => {
+    try {
+      const { images } = req.body;
+
+      console.log("[batch-analyze-stream] Received request with", images?.length || 0, "images");
+
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ error: "images array is required" });
+      }
+
+      // Set headers for streaming newline-delimited JSON
+      res.setHeader("Content-Type", "application/x-ndjson");
+      res.setHeader("Transfer-Encoding", "chunked");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      // Stream results as they complete
+      for await (const { index, total, result } of analyzeImageBatchStreaming(images)) {
+        const chunk = JSON.stringify({ index, total, result }) + "\n";
+        res.write(chunk);
+        console.log(`[batch-analyze-stream] Sent result ${index + 1}/${total}: ${result.filename}`);
+      }
+
+      res.end();
+      console.log("[batch-analyze-stream] Stream complete");
+    } catch (error: any) {
+      console.error("[batch-analyze-stream] Error:", error?.message || error);
+      // If we haven't started streaming, send error response
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to analyze images", details: error?.message });
+      } else {
+        // If streaming, send error as final chunk
+        res.write(JSON.stringify({ error: error?.message || "Analysis failed" }) + "\n");
+        res.end();
+      }
     }
   });
 

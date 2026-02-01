@@ -12,11 +12,86 @@ import { celebrateSuccess } from "@/lib/celebrations";
 import type { Video } from "@shared/schema";
 
 const CATEGORIES = [
-  "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel", 
+  "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel",
   "Business", "Lifestyle", "Education", "Entertainment", "Food", "General"
 ];
 
+// Image compression utility using Canvas API
+async function compressImage(
+  file: File,
+  maxDimension = 1920,
+  quality = 0.85
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // Skip compression for small files or non-images
+    if (file.size < 500 * 1024 || !file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Calculate new dimensions while maintaining aspect ratio
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw and compress
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      // Convert to JPEG for better compression (unless it's a PNG with transparency)
+      const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+      const compressed = canvas.toDataURL(outputType, quality);
+
+      console.log(
+        `[Compression] ${file.name}: ${(file.size / 1024).toFixed(0)}KB → ${(compressed.length * 0.75 / 1024).toFixed(0)}KB (${img.width}x${img.height} → ${width}x${height})`
+      );
+
+      resolve(compressed);
+    };
+
+    img.onerror = () => {
+      // Fallback to original if compression fails
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    };
+
+    // Load image from file
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      img.src = reader.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 type UploadStage = "selecting" | "processing" | "results";
+
+interface StreamProgress {
+  completed: number;
+  total: number;
+  currentFile: string;
+}
 
 interface AnalysisResult {
   filename: string;
@@ -45,6 +120,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
   const [uploadStage, setUploadStage] = useState<UploadStage>("selecting");
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [streamProgress, setStreamProgress] = useState<StreamProgress>({ completed: 0, total: 0, currentFile: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const createVideo = useCreateVideo();
@@ -128,33 +204,91 @@ export function UploadModal({ trigger }: UploadModalProps) {
     }
 
     setUploadStage("processing");
-
-    const imagePromises = selectedFiles.map((file) => {
-      return new Promise<{ base64: string; filename: string }>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve({
-            base64: reader.result as string,
-            filename: file.name,
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-    });
+    setStreamProgress({ completed: 0, total: selectedFiles.length, currentFile: selectedFiles[0]?.name || "" });
 
     try {
-      const images = await Promise.all(imagePromises);
-      
-      const response = await apiRequest("POST", "/api/videos/batch-analyze", { images });
-      const data = await response.json();
-      
-      const results: AnalysisResult[] = data.results.map((result: any, index: number) => ({
-        ...result,
-        base64: images[index].base64,
-        selectedCaptionId: result.captions[0]?.id || "c1",
-      }));
+      // Compress images in parallel before sending
+      console.log(`[Upload] Compressing ${selectedFiles.length} images...`);
+      const compressionStart = Date.now();
 
-      setAnalysisResults(results);
+      const imagePromises = selectedFiles.map(async (file) => {
+        const base64 = await compressImage(file, 1920, 0.85);
+        return {
+          base64,
+          filename: file.name,
+        };
+      });
+
+      const images = await Promise.all(imagePromises);
+      console.log(`[Upload] Compression complete in ${((Date.now() - compressionStart) / 1000).toFixed(1)}s`);
+
+      // Use streaming endpoint for progressive results
+      const response = await fetch("/api/videos/batch-analyze-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ images }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      // Initialize results array with placeholders
+      const results: AnalysisResult[] = new Array(images.length);
+
+      // Read streaming response (newline-delimited JSON)
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.error) {
+                console.error("[Stream] Error from server:", data.error);
+                continue;
+              }
+
+              const { index, total, result } = data;
+
+              // Update progress
+              setStreamProgress({
+                completed: index + 1,
+                total,
+                currentFile: result.filename,
+              });
+
+              // Add result with base64 from original images array
+              results[index] = {
+                ...result,
+                base64: images[index].base64,
+                selectedCaptionId: result.captions[0]?.id || "c1",
+              };
+
+              // Update results to show progressive UI (filter out undefined)
+              setAnalysisResults([...results.filter(Boolean)]);
+
+              console.log(`[Stream] Received ${index + 1}/${total}: ${result.filename}`);
+            } catch (parseError) {
+              console.error("[Stream] Failed to parse line:", line);
+            }
+          }
+        }
+      }
+
+      // Ensure all results are set
+      setAnalysisResults(results.filter(Boolean));
       setUploadStage("results");
     } catch (error) {
       console.error("Batch analysis error:", error);
@@ -244,6 +378,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
     setAnalysisResults([]);
     setUploadStage("selecting");
     setIsSaving(false);
+    setStreamProgress({ completed: 0, total: 0, currentFile: "" });
   };
 
   return (
@@ -375,15 +510,48 @@ export function UploadModal({ trigger }: UploadModalProps) {
               </div>
             </div>
             <div className="text-center space-y-3">
-              <h3 className="font-display text-2xl font-bold text-white uppercase">Deep AI Analysis</h3>
+              <h3 className="font-display text-2xl font-bold text-white uppercase">
+                {streamProgress.completed > 0 ? "AI Analysis In Progress" : "Deep AI Analysis"}
+              </h3>
               <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
-                Individually processing {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''}...
+                {streamProgress.completed > 0 ? (
+                  <>
+                    Completed {streamProgress.completed} of {streamProgress.total} images
+                  </>
+                ) : (
+                  <>Preparing {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''} for analysis...</>
+                )}
               </p>
+              {streamProgress.currentFile && streamProgress.completed > 0 && (
+                <p className="font-mono text-[10px] text-green-400 uppercase tracking-widest">
+                  Latest: {streamProgress.currentFile}
+                </p>
+              )}
             </div>
-            
+
             <div className="w-full max-w-md space-y-4">
+              {/* Real progress bar */}
+              <div className="space-y-2">
+                <div className="bg-zinc-900 h-3 overflow-hidden border border-zinc-800">
+                  <div
+                    className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full transition-all duration-500 ease-out"
+                    style={{
+                      width: streamProgress.total > 0
+                        ? `${(streamProgress.completed / streamProgress.total) * 100}%`
+                        : '5%'
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500 uppercase">
+                  <span>{streamProgress.completed} done</span>
+                  <span>{streamProgress.total - streamProgress.completed} remaining</span>
+                </div>
+              </div>
+
               <div className="p-4 border border-primary/30 bg-primary/5 space-y-3">
-                <h4 className="font-mono text-xs text-primary uppercase tracking-widest text-center">Each image receives full analysis:</h4>
+                <h4 className="font-mono text-xs text-primary uppercase tracking-widest text-center">
+                  Parallel processing (3 concurrent)
+                </h4>
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
                   <div className="flex items-center gap-2">
                     <Check className="w-3 h-3 text-green-400" />
@@ -411,12 +579,9 @@ export function UploadModal({ trigger }: UploadModalProps) {
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-zinc-900 h-2 overflow-hidden">
-                <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full animate-[loading_2s_ease-in-out_infinite]" style={{ width: '100%' }} />
-              </div>
+
               <p className="font-mono text-[10px] text-zinc-600 text-center uppercase">
-                ~5-10 seconds per image for full depth analysis
+                Processing 3 images simultaneously for faster results
               </p>
             </div>
           </div>
