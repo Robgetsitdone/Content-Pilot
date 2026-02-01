@@ -85,12 +85,18 @@ async function compressImage(
   });
 }
 
-type UploadStage = "selecting" | "processing" | "results";
+type UploadStage = "selecting" | "uploading" | "processing" | "results";
 
 interface StreamProgress {
   completed: number;
   total: number;
   currentFile: string;
+}
+
+interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
 }
 
 interface AnalysisResult {
@@ -124,6 +130,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [streamProgress, setStreamProgress] = useState<StreamProgress>({ completed: 0, total: 0, currentFile: "" });
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ loaded: 0, total: 0, percent: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const createVideo = useCreateVideo();
@@ -206,12 +213,17 @@ export function UploadModal({ trigger }: UploadModalProps) {
       return;
     }
 
-    setUploadStage("processing");
+    setUploadStage("uploading");
+    setUploadProgress({ loaded: 0, total: 0, percent: 0 });
     setStreamProgress({ completed: 0, total: selectedFiles.length, currentFile: selectedFiles[0]?.name || "" });
 
     try {
-      // Process files - compress images, read videos directly
-      console.log(`[Upload] Processing ${selectedFiles.length} files...`);
+      // Calculate total file size for progress tracking
+      const totalFileSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+      let processedSize = 0;
+
+      // Process files - compress images, read videos directly (with progress)
+      console.log(`[Upload] Processing ${selectedFiles.length} files (${(totalFileSize / 1024 / 1024).toFixed(1)}MB total)...`);
       const processingStart = Date.now();
 
       const filePromises = selectedFiles.map(async (file) => {
@@ -219,11 +231,29 @@ export function UploadModal({ trigger }: UploadModalProps) {
         const isVideo = file.type.startsWith('video/');
         
         if (isVideo) {
-          // Read video directly as base64 (no compression)
+          // Read video directly as base64 (no compression) with progress
           return new Promise<{ base64: string; filename: string }>((resolve, reject) => {
             const reader = new FileReader();
+            reader.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const currentProgress = processedSize + event.loaded;
+                const percent = Math.round((currentProgress / totalFileSize) * 100);
+                setUploadProgress({
+                  loaded: currentProgress,
+                  total: totalFileSize,
+                  percent: Math.min(percent, 95), // Cap at 95% until server confirms
+                });
+              }
+            };
             reader.onloadend = () => {
-              console.log(`[Upload] Video file ready: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+              processedSize += file.size;
+              const percent = Math.round((processedSize / totalFileSize) * 100);
+              setUploadProgress({
+                loaded: processedSize,
+                total: totalFileSize,
+                percent: Math.min(percent, 95),
+              });
+              console.log(`[Upload] Video file ready: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) - ${percent}%`);
               resolve({
                 base64: reader.result as string,
                 filename: file.name,
@@ -235,6 +265,13 @@ export function UploadModal({ trigger }: UploadModalProps) {
         } else {
           // Compress images
           const base64 = await compressImage(file, 1920, 0.85);
+          processedSize += file.size;
+          const percent = Math.round((processedSize / totalFileSize) * 100);
+          setUploadProgress({
+            loaded: processedSize,
+            total: totalFileSize,
+            percent: Math.min(percent, 95),
+          });
           return {
             base64,
             filename: file.name,
@@ -243,7 +280,11 @@ export function UploadModal({ trigger }: UploadModalProps) {
       });
 
       const images = await Promise.all(filePromises);
-      console.log(`[Upload] Processing complete in ${((Date.now() - processingStart) / 1000).toFixed(1)}s`);
+      console.log(`[Upload] File processing complete in ${((Date.now() - processingStart) / 1000).toFixed(1)}s`);
+
+      // Show sending to server
+      setUploadProgress({ loaded: totalFileSize, total: totalFileSize, percent: 98 });
+      console.log(`[Upload] Sending to server for AI analysis...`);
 
       // Use streaming endpoint for progressive results
       const response = await fetch("/api/videos/batch-analyze-stream", {
@@ -252,6 +293,11 @@ export function UploadModal({ trigger }: UploadModalProps) {
         credentials: "include",
         body: JSON.stringify({ images }),
       });
+
+      // Switch to processing stage when server starts responding
+      setUploadProgress({ loaded: totalFileSize, total: totalFileSize, percent: 100 });
+      setUploadStage("processing");
+      console.log(`[Upload] Server received, processing AI analysis...`);
 
       if (!response.ok) {
         throw new Error(`HTTP error ${response.status}`);
@@ -526,6 +572,54 @@ export function UploadModal({ trigger }: UploadModalProps) {
           </>
         )}
 
+        {uploadStage === "uploading" && (
+          <div className="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] gap-6 sm:gap-8 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="relative">
+              <div className="w-24 h-24 border-2 border-cyan-500/30 flex items-center justify-center">
+                <UploadCloud className="w-10 h-10 text-cyan-400 animate-pulse" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-cyan-500 flex items-center justify-center">
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+              </div>
+            </div>
+            <div className="text-center space-y-3">
+              <h3 className="font-display text-2xl font-bold text-white uppercase">
+                Uploading Files
+              </h3>
+              <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
+                {uploadProgress.percent < 95 
+                  ? `Reading ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}...`
+                  : 'Sending to server...'
+                }
+              </p>
+              <p className="font-mono text-lg text-cyan-400">
+                {uploadProgress.percent}%
+              </p>
+            </div>
+
+            <div className="w-full max-w-md space-y-4">
+              <div className="space-y-2">
+                <div className="bg-zinc-900 h-4 overflow-hidden border border-zinc-800 rounded-sm">
+                  <div
+                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress.percent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500 uppercase">
+                  <span>{(uploadProgress.loaded / 1024 / 1024).toFixed(1)} MB</span>
+                  <span>{(uploadProgress.total / 1024 / 1024).toFixed(1)} MB total</span>
+                </div>
+              </div>
+
+              <div className="p-4 border border-cyan-500/30 bg-cyan-500/5 text-center">
+                <p className="font-mono text-xs text-zinc-400">
+                  Large videos may take a moment to upload
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {uploadStage === "processing" && (
           <div className="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] gap-6 sm:gap-8 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="relative">
@@ -543,10 +637,10 @@ export function UploadModal({ trigger }: UploadModalProps) {
               <p className="font-mono text-xs text-zinc-500 uppercase tracking-widest">
                 {streamProgress.completed > 0 ? (
                   <>
-                    Completed {streamProgress.completed} of {streamProgress.total} images
+                    Analyzed {streamProgress.completed} of {streamProgress.total} files
                   </>
                 ) : (
-                  <>Preparing {selectedFiles.length} image{selectedFiles.length !== 1 ? 's' : ''} for analysis...</>
+                  <>Starting AI analysis...</>
                 )}
               </p>
               {streamProgress.currentFile && streamProgress.completed > 0 && (
@@ -557,7 +651,6 @@ export function UploadModal({ trigger }: UploadModalProps) {
             </div>
 
             <div className="w-full max-w-md space-y-4">
-              {/* Real progress bar */}
               <div className="space-y-2">
                 <div className="bg-zinc-900 h-3 overflow-hidden border border-zinc-800">
                   <div
@@ -570,7 +663,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
                   />
                 </div>
                 <div className="flex justify-between text-[10px] font-mono text-zinc-500 uppercase">
-                  <span>{streamProgress.completed} done</span>
+                  <span>{streamProgress.completed} analyzed</span>
                   <span>{streamProgress.total - streamProgress.completed} remaining</span>
                 </div>
               </div>
