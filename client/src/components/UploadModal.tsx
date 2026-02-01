@@ -611,9 +611,17 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 </div>
               </div>
 
-              <div className="p-4 border border-cyan-500/30 bg-cyan-500/5 text-center">
-                <p className="font-mono text-xs text-zinc-400">
-                  Large videos may take a moment to upload
+              <div className="p-4 border border-cyan-500/30 bg-cyan-500/5 space-y-2">
+                <p className="font-mono text-xs text-zinc-300 text-center">
+                  {uploadProgress.percent < 50 
+                    ? "Reading your files and preparing them for analysis..."
+                    : uploadProgress.percent < 95
+                    ? "Almost there! Finishing up file preparation..."
+                    : "Connecting to AI service for analysis..."
+                  }
+                </p>
+                <p className="font-mono text-[10px] text-zinc-500 text-center">
+                  Your content will be analyzed by Gemini Vision AI
                 </p>
               </div>
             </div>
@@ -668,40 +676,37 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 </div>
               </div>
 
-              <div className="p-4 border border-primary/30 bg-primary/5 space-y-3">
+              <div className="p-4 border border-primary/30 bg-primary/5 space-y-4">
                 <h4 className="font-mono text-xs text-primary uppercase tracking-widest text-center">
-                  Parallel processing (3 concurrent)
+                  What we're creating for you
                 </h4>
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>3 unique caption tones</span>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 text-[11px]">
+                    <Sparkles className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-white font-medium">3 Caption Styles</span>
+                      <p className="text-zinc-500 mt-0.5">Witty, authentic, and hardworking tones - each with custom hashtags tailored to your content</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>Extended post content</span>
+                  <div className="flex items-start gap-3 text-[11px]">
+                    <Music className="w-4 h-4 text-fuchsia-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-white font-medium">Music Recommendations</span>
+                      <p className="text-zinc-500 mt-0.5">3 song suggestions that match the mood and vibe of your content</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>3 music recommendations</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>Sticker suggestions</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>Custom hashtags per tone</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span>Category auto-detection</span>
+                  <div className="flex items-start gap-3 text-[11px]">
+                    <Wand2 className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-white font-medium">Smart Categorization</span>
+                      <p className="text-zinc-500 mt-0.5">Auto-detecting content category and suggesting stickers to boost engagement</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <p className="font-mono text-[10px] text-zinc-600 text-center uppercase">
-                Processing 3 images simultaneously for faster results
+              <p className="font-mono text-[10px] text-zinc-500 text-center">
+                AI is analyzing your content to generate personalized captions and recommendations
               </p>
             </div>
           </div>
