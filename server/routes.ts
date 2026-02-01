@@ -274,9 +274,9 @@ export async function registerRoutes(
   // Streaming Batch Media Analysis - handles both images and videos
   app.post("/api/videos/batch-analyze-stream", requireAuth, async (req, res) => {
     try {
-      const { images } = req.body;
+      const { images, generationNote } = req.body;
 
-      console.log("[batch-analyze-stream] Received request with", images?.length || 0, "media items");
+      console.log("[batch-analyze-stream] Received request with", images?.length || 0, "media items", generationNote ? `(note: "${generationNote.substring(0, 50)}...")` : "");
 
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ error: "images array is required" });
@@ -331,7 +331,7 @@ export async function registerRoutes(
       
       // Stream results as they complete
       let streamedCount = 0;
-      for await (const { index, total, result } of analyzeImageBatchStreaming(validMedia)) {
+      for await (const { index, total, result } of analyzeImageBatchStreaming(validMedia, generationNote)) {
         const mediaItem = validMedia[index];
         const chunk = JSON.stringify({ 
           index: streamedCount, 

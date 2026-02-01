@@ -163,11 +163,11 @@ export interface ImageAnalysisResult {
   stickers: string[];
 }
 
-async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3): Promise<ImageAnalysisResult> {
+async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3, generationNote?: string): Promise<ImageAnalysisResult> {
   let lastError: any;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const result = await analyzeSingleImage(base64, filename);
+      const result = await analyzeSingleImage(base64, filename, generationNote);
       if (attempt > 1) {
         console.log(`[Gemini Vision] Retry ${attempt} succeeded for ${filename}`);
       }
@@ -224,7 +224,7 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
   return results;
 }
 
-async function analyzeSingleImage(base64: string, filename: string): Promise<ImageAnalysisResult> {
+async function analyzeSingleImage(base64: string, filename: string, generationNote?: string): Promise<ImageAnalysisResult> {
   let cleanBase64 = base64;
   let mimeType = "image/jpeg";
   
@@ -237,14 +237,20 @@ async function analyzeSingleImage(base64: string, filename: string): Promise<Ima
       cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
     }
   }
+
+  const contextSection = generationNote ? `
+USER CONTEXT/THEME: "${generationNote}"
+Use this context to inform the tone and theme of ALL captions. The captions should still be unique to the image content, but incorporate the user's intended theme or purpose. For example, if the user says "wife's birthday celebration", the captions should have a celebratory, appreciative tone even if the image itself doesn't explicitly show a party.
+
+` : '';
   
   const prompt = `Analyze this specific image carefully for an Instagram content creator. Describe what you see in the image and create unique, personalized captions based on the actual visual content.
-
+${contextSection}
 ${VOICE_GUIDELINES}
 
 Categories to choose from: ${CATEGORIES.join(", ")}
 
-IMPORTANT: Your response must be unique to THIS specific image. Look at the people, setting, activities, and mood in the image.
+IMPORTANT: Your response must be unique to THIS specific image. Look at the people, setting, activities, and mood in the image.${generationNote ? ` Incorporate the user's theme/context into the captions while keeping them relevant to the image.` : ''}
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
@@ -328,12 +334,13 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
 // Streaming version that yields results as they complete
 export async function* analyzeImageBatchStreaming(
-  images: Array<{ base64: string; filename: string }>
+  images: Array<{ base64: string; filename: string }>,
+  generationNote?: string
 ): AsyncGenerator<{ index: number; total: number; result: ImageAnalysisResult }> {
   const limiter = createConcurrencyLimiter(CONCURRENCY_LIMIT);
   const total = images.length;
 
-  console.log(`[Gemini Vision] Starting streaming analysis of ${total} images (max ${CONCURRENCY_LIMIT} concurrent)`);
+  console.log(`[Gemini Vision] Starting streaming analysis of ${total} images (max ${CONCURRENCY_LIMIT} concurrent)${generationNote ? ` with note: "${generationNote.substring(0, 30)}..."` : ""}`);
   const startTime = Date.now();
 
   // Create array to track completion order
@@ -345,7 +352,7 @@ export async function* analyzeImageBatchStreaming(
   const analysisPromises = images.map((image, index) =>
     limiter(async () => {
       try {
-        const result = await analyzeWithRetry(image.base64, image.filename, 3);
+        const result = await analyzeWithRetry(image.base64, image.filename, 3, generationNote);
         console.log(`[Gemini Vision] [${index + 1}/${total}] Completed ${image.filename}: ${result.category}`);
         return { index, result };
       } catch (error: any) {

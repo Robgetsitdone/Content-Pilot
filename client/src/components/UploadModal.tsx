@@ -131,6 +131,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [streamProgress, setStreamProgress] = useState<StreamProgress>({ completed: 0, total: 0, currentFile: "" });
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ loaded: 0, total: 0, percent: 0 });
+  const [generationNote, setGenerationNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const createVideo = useCreateVideo();
@@ -291,7 +292,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ images, generationNote: generationNote.trim() || undefined }),
       });
 
       // Switch to processing stage when server starts responding
@@ -546,7 +547,23 @@ export function UploadModal({ trigger }: UploadModalProps) {
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-4">
-                <h4 className="font-mono text-xs text-zinc-500 uppercase tracking-widest">Batch Processing</h4>
+                <div className="space-y-2">
+                  <label className="font-mono text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <Sparkles className="w-3 h-3" />
+                    Generation Note <span className="text-zinc-600">(optional)</span>
+                  </label>
+                  <textarea
+                    value={generationNote}
+                    onChange={(e) => setGenerationNote(e.target.value.slice(0, 500))}
+                    placeholder="Add context to guide AI captions... e.g., 'Wife's birthday celebration' or 'Family vacation memories'"
+                    className="w-full h-20 px-3 py-2 bg-zinc-900 border border-zinc-700 text-white text-sm placeholder:text-zinc-600 resize-none focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+                    data-testid="input-generation-note"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-zinc-600">
+                    <span>Helps AI create themed captions across all files</span>
+                    <span>{generationNote.length}/500</span>
+                  </div>
+                </div>
                 <div className="p-4 border border-primary/30 bg-primary/5">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-black border border-primary/50">
