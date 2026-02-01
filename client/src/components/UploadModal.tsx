@@ -222,73 +222,96 @@ export function UploadModal({ trigger }: UploadModalProps) {
       const images = await Promise.all(imagePromises);
       console.log(`[Upload] Compression complete in ${((Date.now() - compressionStart) / 1000).toFixed(1)}s`);
 
-      // Use streaming endpoint for progressive results
-      const response = await fetch("/api/videos/batch-analyze-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ images }),
-      });
+      // Detect mobile or use fallback for reliability
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
-      }
+      let results: AnalysisResult[] = [];
 
-      // Initialize results array with placeholders
-      const results: AnalysisResult[] = new Array(images.length);
+      if (isMobile) {
+        // Use non-streaming endpoint for mobile (more reliable)
+        console.log("[Upload] Using non-streaming endpoint for mobile");
+        const response = await apiRequest("POST", "/api/videos/batch-analyze", { images });
+        const data = await response.json();
 
-      // Read streaming response (newline-delimited JSON)
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+        results = data.results.map((result: any, index: number) => ({
+          ...result,
+          base64: images[index].base64,
+          selectedCaptionId: result.captions[0]?.id || "c1",
+        }));
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        setStreamProgress({ completed: images.length, total: images.length, currentFile: "Complete" });
+      } else {
+        // Use streaming endpoint for progressive results on desktop
+        const response = await fetch("/api/videos/batch-analyze-stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ images }),
+        });
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
 
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const data = JSON.parse(line);
-              if (data.error) {
-                console.error("[Stream] Error from server:", data.error);
-                continue;
+        // Initialize results array with placeholders
+        results = new Array(images.length);
+
+        // Read streaming response (newline-delimited JSON)
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const data = JSON.parse(line);
+                if (data.error) {
+                  console.error("[Stream] Error from server:", data.error);
+                  continue;
+                }
+
+                const { index, total, result } = data;
+
+                // Update progress
+                setStreamProgress({
+                  completed: index + 1,
+                  total,
+                  currentFile: result.filename,
+                });
+
+                // Add result with base64 from original images array
+                results[index] = {
+                  ...result,
+                  base64: images[index].base64,
+                  selectedCaptionId: result.captions[0]?.id || "c1",
+                };
+
+                // Update results to show progressive UI (filter out undefined)
+                setAnalysisResults([...results.filter(Boolean)]);
+
+                console.log(`[Stream] Received ${index + 1}/${total}: ${result.filename}`);
+              } catch (parseError) {
+                console.error("[Stream] Failed to parse line:", line);
               }
-
-              const { index, total, result } = data;
-
-              // Update progress
-              setStreamProgress({
-                completed: index + 1,
-                total,
-                currentFile: result.filename,
-              });
-
-              // Add result with base64 from original images array
-              results[index] = {
-                ...result,
-                base64: images[index].base64,
-                selectedCaptionId: result.captions[0]?.id || "c1",
-              };
-
-              // Update results to show progressive UI (filter out undefined)
-              setAnalysisResults([...results.filter(Boolean)]);
-
-              console.log(`[Stream] Received ${index + 1}/${total}: ${result.filename}`);
-            } catch (parseError) {
-              console.error("[Stream] Failed to parse line:", line);
             }
           }
         }
+
+        // Filter out any undefined results
+        results = results.filter(Boolean);
       }
 
       // Ensure all results are set
-      setAnalysisResults(results.filter(Boolean));
+      setAnalysisResults(results);
       setUploadStage("results");
     } catch (error) {
       console.error("Batch analysis error:", error);
