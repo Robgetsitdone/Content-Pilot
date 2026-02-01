@@ -3,13 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, UploadCloud, Wand2, Loader2, Check, ChevronLeft, Music, Sparkles, X, Play, AlertCircle } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateVideo } from "@/hooks/useVideos";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { celebrateSuccess } from "@/lib/celebrations";
 import type { Video } from "@shared/schema";
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const CATEGORIES = [
   "Family", "Parenting", "Fitness", "Gym + Life + Fitness", "Travel",
@@ -101,7 +110,7 @@ interface UploadProgress {
 
 interface AnalysisResult {
   filename: string;
-  base64: string;
+  base64: string; // Thumbnail for videos, compressed image for images
   category: string;
   selectedCaptionId: string;
   captions: Array<{
@@ -115,8 +124,8 @@ interface AnalysisResult {
   music: string[];
   stickers: string[];
   isVideo?: boolean;
-  originalBase64?: string;
   videoDuration?: number;
+  fileIndex?: number; // Index into originalFilesRef for memory-efficient video storage
 }
 
 interface UploadModalProps {
@@ -134,9 +143,22 @@ export function UploadModal({ trigger }: UploadModalProps) {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ loaded: 0, total: 0, percent: 0 });
   const [generationNote, setGenerationNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const originalFilesRef = useRef<Map<number, File>>(new Map());
   const { toast } = useToast();
   const createVideo = useCreateVideo();
   const queryClient = useQueryClient();
+
+  const clearFileRefs = useCallback(() => {
+    originalFilesRef.current.clear();
+    console.log("[Memory] Cleared file references");
+  }, []);
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      clearFileRefs();
+    };
+  }, [clearFileRefs]);
 
   const handleFilesSelect = (files: FileList) => {
     const validTypes = ["video/mp4", "video/quicktime", "image/jpeg", "image/png", "image/gif"];
@@ -331,7 +353,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 continue;
               }
 
-              const { index, total, result, isVideo, originalBase64, videoDuration, thumbnailBase64 } = data;
+              const { index, total, result, isVideo, videoDuration, thumbnailBase64 } = data;
 
               // Update progress
               setStreamProgress({
@@ -340,15 +362,20 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 currentFile: result.filename,
               });
 
-              // Add result with base64 from original images array
-              // For videos, use thumbnailBase64 for preview display, originalBase64 for saving
+              // For videos, store the original File in ref (memory efficient) instead of base64 in state
+              if (isVideo && selectedFiles[index]) {
+                originalFilesRef.current.set(index, selectedFiles[index]);
+                console.log(`[Memory] Stored file reference for ${selectedFiles[index].name} (index ${index})`);
+              }
+
+              // Add result with thumbnail for preview - DO NOT store large video base64 in state
               results[index] = {
                 ...result,
                 base64: isVideo ? (thumbnailBase64 || images[index].base64) : images[index].base64,
                 selectedCaptionId: result.captions[0]?.id || "c1",
                 isVideo: isVideo || false,
-                originalBase64: isVideo ? (originalBase64 || images[index].base64) : undefined,
                 videoDuration: videoDuration,
+                fileIndex: isVideo ? index : undefined,
               };
 
               // Update results to show progressive UI (filter out undefined)
@@ -397,16 +424,32 @@ export function UploadModal({ trigger }: UploadModalProps) {
     setIsSaving(true);
     
     try {
-      const videosToCreate = validResults.map((result) => {
+      // Convert video files to base64 on-demand (memory efficient - not stored in state)
+      const videosToCreate = await Promise.all(validResults.map(async (result) => {
         const selectedCaption = result.captions.find(c => c.id === result.selectedCaptionId) || result.captions[0];
         const titleFromCaption = selectedCaption.text.length > 50 
           ? selectedCaption.text.substring(0, 50).trim() + "..." 
           : selectedCaption.text.split('.')[0] || selectedCaption.text;
         
+        // For videos, read from file ref; for images, use the already-compressed base64
+        let mediaUrl: string;
+        if (result.isVideo && result.fileIndex !== undefined) {
+          const file = originalFilesRef.current.get(result.fileIndex);
+          if (file) {
+            console.log(`[Save] Converting video file to base64: ${file.name}`);
+            mediaUrl = await fileToBase64(file);
+          } else {
+            console.warn(`[Save] Video file not found in ref for index ${result.fileIndex}, using fallback`);
+            mediaUrl = result.base64; // Fallback to thumbnail
+          }
+        } else {
+          mediaUrl = result.base64;
+        }
+        
         return {
           title: titleFromCaption,
           thumbnail: "bg-zinc-900",
-          mediaUrl: result.isVideo ? result.originalBase64 : result.base64,
+          mediaUrl,
           mediaType: result.isVideo ? "video" as const : "image" as const,
           category: result.category,
           captionTone: selectedCaption.tone,
@@ -421,7 +464,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
           views: 0,
           scheduledDate: null,
         };
-      });
+      }));
 
       await apiRequest("POST", "/api/videos/batch", { videos: videosToCreate });
       
@@ -450,14 +493,15 @@ export function UploadModal({ trigger }: UploadModalProps) {
     }
   };
 
-  const resetUploadState = () => {
+  const resetUploadState = useCallback(() => {
     setSelectedFiles([]);
     setAnalysisResults([]);
     setUploadStage("selecting");
     setGenerationNote("");
     setIsSaving(false);
     setStreamProgress({ completed: 0, total: 0, currentFile: "" });
-  };
+    clearFileRefs();
+  }, [clearFileRefs]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { 
