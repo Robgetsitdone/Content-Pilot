@@ -72,7 +72,8 @@ Preferred communication style: Simple, everyday language.
 - **11 Content Categories**: Family, Parenting, Fitness, Gym + Life + Fitness, Travel, Business, Lifestyle, Education, Entertainment, Food, General
 - **Time Slot Scheduling**: Morning (9am), Afternoon (12pm), Evening (5pm) slots per day
 - **AI Caption Generation**: Gemini-powered with masculine, hardworking, witty voice
-- **Multi-file Upload**: Batch upload support for images and videos
+- **Multi-file Upload**: Batch upload support for images and videos with progress tracking
+- **Generation Note**: Optional context field (500 chars max) to guide AI towards a specific theme or purpose (e.g., "wife's birthday celebration", "family vacation memories") - helps create themed captions across all uploaded files
 
 ## External Dependencies
 

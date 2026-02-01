@@ -282,6 +282,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "images array is required" });
       }
 
+      // Sanitize and limit generationNote on server side
+      const sanitizedNote = generationNote && typeof generationNote === 'string' 
+        ? generationNote.trim().substring(0, 500) 
+        : undefined;
+
       // Pre-process videos to extract frames
       const processedMedia: Array<{ base64: string; filename: string; originalBase64?: string; isVideo?: boolean; videoDuration?: number; thumbnailBase64?: string }> = [];
       
@@ -331,7 +336,7 @@ export async function registerRoutes(
       
       // Stream results as they complete
       let streamedCount = 0;
-      for await (const { index, total, result } of analyzeImageBatchStreaming(validMedia, generationNote)) {
+      for await (const { index, total, result } of analyzeImageBatchStreaming(validMedia, sanitizedNote)) {
         const mediaItem = validMedia[index];
         const chunk = JSON.stringify({ 
           index: streamedCount, 
