@@ -6,6 +6,7 @@ import { generateCaptions, analyzeContent, analyzeImageBatch, analyzeImageBatchS
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
 import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
 import { requireAuth, hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId } from "./auth";
+import { extractVideoFrame, isVideoMimeType } from "./videoProcessing";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -270,15 +271,52 @@ export async function registerRoutes(
     }
   });
 
-  // Streaming Batch Image Analysis - yields results as they complete
+  // Streaming Batch Media Analysis - handles both images and videos
   app.post("/api/videos/batch-analyze-stream", requireAuth, async (req, res) => {
     try {
       const { images } = req.body;
 
-      console.log("[batch-analyze-stream] Received request with", images?.length || 0, "images");
+      console.log("[batch-analyze-stream] Received request with", images?.length || 0, "media items");
 
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ error: "images array is required" });
+      }
+
+      // Pre-process videos to extract frames
+      const processedMedia: Array<{ base64: string; filename: string; originalBase64?: string; isVideo?: boolean; videoDuration?: number; thumbnailBase64?: string }> = [];
+      
+      for (const item of images) {
+        if (isVideoMimeType(item.base64)) {
+          console.log(`[batch-analyze-stream] Processing video: ${item.filename}`);
+          try {
+            const videoResult = await extractVideoFrame(item.base64);
+            processedMedia.push({
+              base64: videoResult.frameBase64,
+              filename: item.filename,
+              originalBase64: item.base64,
+              isVideo: true,
+              videoDuration: videoResult.duration,
+              thumbnailBase64: videoResult.frameBase64
+            });
+            console.log(`[batch-analyze-stream] Extracted frame from video: ${item.filename} (${videoResult.duration.toFixed(1)}s)`);
+          } catch (videoError: any) {
+            console.error(`[batch-analyze-stream] Failed to process video ${item.filename}:`, videoError?.message);
+            console.log(`[batch-analyze-stream] Skipping video analysis for ${item.filename} - ffmpeg extraction failed`);
+            processedMedia.push({
+              base64: "",
+              filename: item.filename,
+              originalBase64: item.base64,
+              isVideo: true,
+              thumbnailBase64: ""
+            });
+          }
+        } else {
+          processedMedia.push({
+            base64: item.base64,
+            filename: item.filename,
+            isVideo: false
+          });
+        }
       }
 
       // Set headers for streaming newline-delimited JSON
@@ -287,22 +325,63 @@ export async function registerRoutes(
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
+      // Filter out items with empty base64 (failed video extraction)
+      const validMedia = processedMedia.filter(item => item.base64 !== "");
+      const skippedMedia = processedMedia.filter(item => item.base64 === "");
+      
       // Stream results as they complete
-      for await (const { index, total, result } of analyzeImageBatchStreaming(images)) {
-        const chunk = JSON.stringify({ index, total, result }) + "\n";
+      let streamedCount = 0;
+      for await (const { index, total, result } of analyzeImageBatchStreaming(validMedia)) {
+        const mediaItem = validMedia[index];
+        const chunk = JSON.stringify({ 
+          index: streamedCount, 
+          total: processedMedia.length, 
+          result,
+          isVideo: mediaItem.isVideo,
+          originalBase64: mediaItem.originalBase64,
+          videoDuration: mediaItem.videoDuration,
+          thumbnailBase64: mediaItem.thumbnailBase64
+        }) + "\n";
         res.write(chunk);
-        console.log(`[batch-analyze-stream] Sent result ${index + 1}/${total}: ${result.filename}`);
+        streamedCount++;
+        console.log(`[batch-analyze-stream] Sent result ${streamedCount}/${processedMedia.length}: ${result.filename} (${mediaItem.isVideo ? 'video' : 'image'})`);
+      }
+      
+      // Send error results for skipped videos
+      for (const skipped of skippedMedia) {
+        const errorResult = {
+          filename: skipped.filename,
+          category: "General",
+          captions: [
+            { id: "c1", tone: "Quick & Witty", text: "Video ready to share! 💪", hashtags: ["#video", "#content", "#creator"] },
+            { id: "c2", tone: "Real Talk", text: "Another video, another story.", hashtags: ["#grind", "#hustle", "#mindset"] },
+            { id: "c3", tone: "Authentic", text: "Making moves, one clip at a time.", hashtags: ["#progress", "#growth", "#journey"] }
+          ],
+          extendedPost: "Check out this video content...",
+          music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
+          stickers: ["🔥", "💯", "✨"]
+        };
+        const chunk = JSON.stringify({ 
+          index: streamedCount, 
+          total: processedMedia.length, 
+          result: errorResult,
+          isVideo: true,
+          originalBase64: skipped.originalBase64,
+          thumbnailBase64: "",
+          videoError: true
+        }) + "\n";
+        res.write(chunk);
+        streamedCount++;
+        console.log(`[batch-analyze-stream] Sent fallback result for skipped video: ${skipped.filename}`);
       }
 
       res.end();
       console.log("[batch-analyze-stream] Stream complete");
     } catch (error: any) {
       console.error("[batch-analyze-stream] Error:", error?.message || error);
-      // If we haven't started streaming, send error response
       if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to analyze images", details: error?.message });
+        res.status(500).json({ error: "Failed to analyze media", details: error?.message });
       } else {
-        // If streaming, send error as final chunk
         res.write(JSON.stringify({ error: error?.message || "Analysis failed" }) + "\n");
         res.end();
       }

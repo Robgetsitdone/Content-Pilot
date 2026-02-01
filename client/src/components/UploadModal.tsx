@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, UploadCloud, Wand2, Loader2, Check, ChevronLeft, Music, Sparkles, X } from "lucide-react";
+import { Plus, UploadCloud, Wand2, Loader2, Check, ChevronLeft, Music, Sparkles, X, Play } from "lucide-react";
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateVideo } from "@/hooks/useVideos";
@@ -107,6 +107,9 @@ interface AnalysisResult {
   extendedPost: string;
   music: string[];
   stickers: string[];
+  isVideo?: boolean;
+  originalBase64?: string;
+  videoDuration?: number;
 }
 
 interface UploadModalProps {
@@ -260,7 +263,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 continue;
               }
 
-              const { index, total, result } = data;
+              const { index, total, result, isVideo, originalBase64, videoDuration, thumbnailBase64 } = data;
 
               // Update progress
               setStreamProgress({
@@ -270,16 +273,20 @@ export function UploadModal({ trigger }: UploadModalProps) {
               });
 
               // Add result with base64 from original images array
+              // For videos, use thumbnailBase64 for preview display, originalBase64 for saving
               results[index] = {
                 ...result,
-                base64: images[index].base64,
+                base64: isVideo ? (thumbnailBase64 || images[index].base64) : images[index].base64,
                 selectedCaptionId: result.captions[0]?.id || "c1",
+                isVideo: isVideo || false,
+                originalBase64: isVideo ? (originalBase64 || images[index].base64) : undefined,
+                videoDuration: videoDuration,
               };
 
               // Update results to show progressive UI (filter out undefined)
               setAnalysisResults([...results.filter(Boolean)]);
 
-              console.log(`[Stream] Received ${index + 1}/${total}: ${result.filename}`);
+              console.log(`[Stream] Received ${index + 1}/${total}: ${result.filename} (${isVideo ? 'video' : 'image'})`);
             } catch (parseError) {
               console.error("[Stream] Failed to parse line:", line);
             }
@@ -329,8 +336,8 @@ export function UploadModal({ trigger }: UploadModalProps) {
         return {
           title: titleFromCaption,
           thumbnail: "bg-zinc-900",
-          mediaUrl: result.base64,
-          mediaType: "image" as const,
+          mediaUrl: result.isVideo ? result.originalBase64 : result.base64,
+          mediaType: result.isVideo ? "video" as const : "image" as const,
           category: result.category,
           captionTone: selectedCaption.tone,
           status: "draft" as const,
@@ -620,8 +627,27 @@ export function UploadModal({ trigger }: UploadModalProps) {
                         alt={result.filename}
                         className="absolute inset-0 w-full h-full object-cover object-center"
                       />
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/80 backdrop-blur-sm">
-                        <span className="font-mono text-[10px] text-zinc-400 uppercase truncate max-w-[150px] block">{result.filename}</span>
+                      {result.isVideo && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20">
+                            <Play className="w-5 h-5 text-white ml-0.5" fill="currentColor" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute top-2 left-2 flex items-center gap-2">
+                        <div className="px-2 py-1 bg-black/80 backdrop-blur-sm">
+                          <span className="font-mono text-[10px] text-zinc-400 uppercase truncate max-w-[150px] block">{result.filename}</span>
+                        </div>
+                        {result.isVideo && (
+                          <div className="px-2 py-1 bg-purple-500/80 backdrop-blur-sm">
+                            <span className="font-mono text-[10px] text-white uppercase">Video</span>
+                          </div>
+                        )}
+                        {result.videoDuration && (
+                          <div className="px-2 py-1 bg-black/80 backdrop-blur-sm">
+                            <span className="font-mono text-[10px] text-zinc-400">{result.videoDuration.toFixed(1)}s</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
