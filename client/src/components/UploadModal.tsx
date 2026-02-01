@@ -614,11 +614,11 @@ export function UploadModal({ trigger }: UploadModalProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                 {analysisResults.map((result, index) => (
                   <div key={index} className="border border-zinc-800 bg-zinc-950/50 overflow-hidden" data-testid={`result-card-${index}`}>
-                    <div className="aspect-video bg-zinc-900 relative overflow-hidden">
+                    <div className="aspect-video bg-zinc-900 relative overflow-hidden w-full">
                       <img 
                         src={result.base64} 
                         alt={result.filename}
-                        className="w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover object-center"
                       />
                       <div className="absolute top-2 left-2 px-2 py-1 bg-black/80 backdrop-blur-sm">
                         <span className="font-mono text-[10px] text-zinc-400 uppercase truncate max-w-[150px] block">{result.filename}</span>
