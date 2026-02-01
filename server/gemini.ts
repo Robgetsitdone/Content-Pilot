@@ -155,7 +155,7 @@ export interface ImageAnalysisResult {
   stickers: string[];
 }
 
-async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3, generationNote?: string): Promise<ImageAnalysisResult> {
+async function analyzeWithRetry(base64: string, filename: string, maxRetries = 5, generationNote?: string): Promise<ImageAnalysisResult> {
   let lastError: any;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -166,10 +166,20 @@ async function analyzeWithRetry(base64: string, filename: string, maxRetries = 3
       return result;
     } catch (error: any) {
       lastError = error;
-      console.log(`[Gemini Vision] Attempt ${attempt}/${maxRetries} failed for ${filename}: ${error?.message || error}`);
+      const errorMsg = error?.message || String(error);
+      console.log(`[Gemini Vision] Attempt ${attempt}/${maxRetries} failed for ${filename}: ${errorMsg}`);
+      
+      // Check if this is a rate limit error (429) or server error (5xx) - worth retrying
+      const isRetryable = errorMsg.includes('429') || errorMsg.includes('500') || 
+                          errorMsg.includes('503') || errorMsg.includes('rate') ||
+                          errorMsg.includes('quota') || errorMsg.includes('temporarily');
+      
       if (attempt < maxRetries) {
-        const delay = 1000 * attempt;
-        console.log(`[Gemini Vision] Waiting ${delay}ms before retry...`);
+        // Exponential backoff with jitter: 2s, 4s, 8s, 16s base delays
+        const baseDelay = Math.pow(2, attempt) * 1000;
+        const jitter = Math.random() * 1000;
+        const delay = baseDelay + jitter;
+        console.log(`[Gemini Vision] Waiting ${Math.round(delay)}ms before retry... (${isRetryable ? 'retryable error' : 'unknown error'})`);
         await new Promise(r => setTimeout(r, delay));
       }
     }
@@ -186,7 +196,7 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
   const analysisPromises = images.map((image, index) =>
     limiter(async () => {
       try {
-        const result = await analyzeWithRetry(image.base64, image.filename, 3);
+        const result = await analyzeWithRetry(image.base64, image.filename, 5);
         console.log(`[Gemini Vision] [${index + 1}/${images.length}] Successfully analyzed ${image.filename}: ${result.category}`);
         return result;
       } catch (error: any) {
@@ -342,7 +352,7 @@ export async function* analyzeImageBatchStreaming(
   const analysisPromises = images.map((image, index) =>
     limiter(async () => {
       try {
-        const result = await analyzeWithRetry(image.base64, image.filename, 3, generationNote);
+        const result = await analyzeWithRetry(image.base64, image.filename, 5, generationNote);
         console.log(`[Gemini Vision] [${index + 1}/${total}] Completed ${image.filename}: ${result.category}`);
         return { index, result };
       } catch (error: any) {
