@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, UploadCloud, Wand2, Loader2, Check, ChevronLeft, Music, Sparkles, X, Play } from "lucide-react";
+import { Plus, UploadCloud, Wand2, Loader2, Check, ChevronLeft, Music, Sparkles, X, Play, AlertCircle } from "lucide-react";
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateVideo } from "@/hooks/useVideos";
@@ -110,6 +110,7 @@ interface AnalysisResult {
     text: string;
     hashtags: string[];
   }>;
+  error?: string; // Present when AI analysis failed
   extendedPost: string;
   music: string[];
   stickers: string[];
@@ -389,12 +390,14 @@ export function UploadModal({ trigger }: UploadModalProps) {
   };
 
   const handleBulkSave = async () => {
-    if (analysisResults.length === 0) return;
+    // Filter out error results before saving
+    const validResults = analysisResults.filter(r => !r.error);
+    if (validResults.length === 0) return;
 
     setIsSaving(true);
     
     try {
-      const videosToCreate = analysisResults.map((result) => {
+      const videosToCreate = validResults.map((result) => {
         const selectedCaption = result.captions.find(c => c.id === result.selectedCaptionId) || result.captions[0];
         const titleFromCaption = selectedCaption.text.length > 50 
           ? selectedCaption.text.substring(0, 50).trim() + "..." 
@@ -428,7 +431,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
       
       toast({
         title: "🎉 Batch Upload Complete!",
-        description: `Successfully created ${analysisResults.length} new assets with AI-generated captions.`,
+        description: `Successfully created ${validResults.length} new asset${validResults.length !== 1 ? 's' : ''} with AI-generated captions.`,
         duration: 5000,
       });
 
@@ -762,17 +765,24 @@ export function UploadModal({ trigger }: UploadModalProps) {
             <ScrollArea className="flex-1 min-h-0 overflow-y-auto touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                 {analysisResults.map((result, index) => (
-                  <div key={index} className="border border-zinc-800 bg-zinc-950/50 overflow-hidden" data-testid={`result-card-${index}`}>
+                  <div key={index} className={`border bg-zinc-950/50 overflow-hidden ${result.error ? 'border-red-500/50' : 'border-zinc-800'}`} data-testid={`result-card-${index}`}>
                     <div className="aspect-video bg-zinc-900 relative overflow-hidden w-full">
                       <img 
                         src={result.base64} 
                         alt={result.filename}
-                        className="absolute inset-0 w-full h-full object-cover object-center"
+                        className={`absolute inset-0 w-full h-full object-cover object-center ${result.error ? 'opacity-50' : ''}`}
                       />
-                      {result.isVideo && (
+                      {result.isVideo && !result.error && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20">
                             <Play className="w-5 h-5 text-white ml-0.5" fill="currentColor" />
+                          </div>
+                        </div>
+                      )}
+                      {result.error && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <div className="w-12 h-12 bg-red-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-red-500/40">
+                            <AlertCircle className="w-6 h-6 text-red-400" />
                           </div>
                         </div>
                       )}
@@ -780,12 +790,17 @@ export function UploadModal({ trigger }: UploadModalProps) {
                         <div className="px-2 py-1 bg-black/80 backdrop-blur-sm">
                           <span className="font-mono text-[10px] text-zinc-400 uppercase truncate max-w-[150px] block">{result.filename}</span>
                         </div>
-                        {result.isVideo && (
+                        {result.error && (
+                          <div className="px-2 py-1 bg-red-500/80 backdrop-blur-sm">
+                            <span className="font-mono text-[10px] text-white uppercase">Failed</span>
+                          </div>
+                        )}
+                        {result.isVideo && !result.error && (
                           <div className="px-2 py-1 bg-purple-500/80 backdrop-blur-sm">
                             <span className="font-mono text-[10px] text-white uppercase">Video</span>
                           </div>
                         )}
-                        {result.videoDuration && (
+                        {result.videoDuration && !result.error && (
                           <div className="px-2 py-1 bg-black/80 backdrop-blur-sm">
                             <span className="font-mono text-[10px] text-zinc-400">{result.videoDuration.toFixed(1)}s</span>
                           </div>
@@ -793,6 +808,26 @@ export function UploadModal({ trigger }: UploadModalProps) {
                       </div>
                     </div>
                     
+                    {result.error ? (
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="font-mono text-xs text-red-400 font-medium">Analysis Failed</p>
+                            <p className="font-mono text-[11px] text-zinc-500 mt-1">This file couldn't be analyzed. Please try uploading it again separately.</p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setAnalysisResults(prev => prev.filter((_, i) => i !== index))}
+                          className="w-full rounded-none border-zinc-700 text-xs"
+                          data-testid={`remove-failed-${index}`}
+                        >
+                          Remove from batch
+                        </Button>
+                      </div>
+                    ) : (
                     <div className="p-4 space-y-4">
                       <div className="space-y-2">
                         <label className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Category</label>
@@ -880,6 +915,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -889,7 +925,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
               <Button 
                 className="w-full h-12 rounded-none bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:from-violet-600 hover:to-fuchsia-600 font-bold uppercase tracking-wide"
                 onClick={handleBulkSave}
-                disabled={isSaving}
+                disabled={isSaving || analysisResults.filter(r => !r.error).length === 0}
                 data-testid="button-create-all"
               >
                 {isSaving ? (
@@ -900,7 +936,7 @@ export function UploadModal({ trigger }: UploadModalProps) {
                 ) : (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    Create All {analysisResults.length} Assets
+                    Create {analysisResults.filter(r => !r.error).length} Asset{analysisResults.filter(r => !r.error).length !== 1 ? 's' : ''}
                   </>
                 )}
               </Button>

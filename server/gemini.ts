@@ -96,17 +96,8 @@ Return ONLY valid JSON with no markdown:
   } catch (parseError) {
     console.error("JSON parse error:", parseError);
     console.error("Attempted to parse:", jsonStr.substring(0, 500));
-    
-    return {
-      captions: [
-        { id: "c1", tone: "Quick & Witty", text: "Content ready to share! 💪", hashtags: ["#content", "#creator"] },
-        { id: "c2", tone: "Real Talk", text: "Another day, another win.", hashtags: ["#grind", "#hustle"] },
-        { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth"] }
-      ],
-      extendedPost: "Check out what I've been working on...",
-      music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
-      stickers: ["Fire emoji", "100 emoji", "Checkmark"]
-    };
+    // Throw error instead of returning generic fallback
+    throw new Error("Failed to parse AI response - please try again");
   }
 }
 
@@ -160,6 +151,7 @@ export interface ImageAnalysisResult {
   }>;
   extendedPost: string;
   music: string[];
+  error?: string; // Present when AI analysis failed
   stickers: string[];
 }
 
@@ -200,17 +192,15 @@ export async function analyzeImageBatch(images: Array<{ base64: string; filename
       } catch (error: any) {
         console.error(`[Gemini Vision] [${index + 1}/${images.length}] ALL RETRIES FAILED for ${image.filename}:`);
         console.error(`[Gemini Vision] Final error:`, error?.message || error);
+        // Return error result instead of generic fallback
         return {
           filename: image.filename,
           category: "General",
-          captions: [
-            { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
-            { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
-            { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
-          ],
-          extendedPost: "Check out what I've been working on...",
-          music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
-          stickers: ["🔥", "💯", "✨"]
+          captions: [],
+          extendedPost: "",
+          music: [],
+          stickers: [],
+          error: `AI analysis failed: ${error?.message || 'Unknown error'}. Please try uploading this file again.`
         } as ImageAnalysisResult;
       }
     })
@@ -357,20 +347,18 @@ export async function* analyzeImageBatchStreaming(
         return { index, result };
       } catch (error: any) {
         console.error(`[Gemini Vision] [${index + 1}/${total}] FAILED ${image.filename}:`, error?.message);
+        // Return error result instead of generic fallback - let user know analysis failed
         return {
           index,
           result: {
             filename: image.filename,
             category: "General",
-            captions: [
-              { id: "c1", tone: "Quick & Witty", text: "Ready to share! 💪", hashtags: ["#content", "#creator", "#lifestyle"] },
-              { id: "c2", tone: "Real Talk", text: "Another day, another opportunity.", hashtags: ["#grind", "#hustle", "#mindset"] },
-              { id: "c3", tone: "Authentic", text: "Making moves, one step at a time.", hashtags: ["#progress", "#growth", "#journey"] }
-            ],
-            extendedPost: "Check out what I've been working on...",
-            music: ["Upbeat hip-hop", "Motivational instrumental", "Lo-fi beats"],
-            stickers: ["🔥", "💯", "✨"]
-          } as ImageAnalysisResult
+            captions: [],
+            extendedPost: "",
+            music: [],
+            stickers: [],
+            error: `AI analysis failed: ${error?.message || 'Unknown error'}. Please try uploading this file again.`
+          } as ImageAnalysisResult & { error?: string }
         };
       }
     }).then((completed) => {
