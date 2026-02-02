@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import { Pool } from "pg";
 import { db } from "../db/index";
-import { users, type User } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, passwordResetTokens, type User } from "@shared/schema";
+import { eq, and, gt, isNull } from "drizzle-orm";
 
 const SALT_ROUNDS = 12;
 
@@ -116,4 +117,48 @@ export async function findUserByGoogleId(googleId: string): Promise<User | undef
 export async function findUserById(id: string): Promise<User | undefined> {
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result[0];
+}
+
+export async function createPasswordResetToken(userId: string): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+  
+  await db.insert(passwordResetTokens).values({
+    userId,
+    token,
+    expiresAt,
+  });
+  
+  return token;
+}
+
+export async function verifyPasswordResetToken(token: string): Promise<string | null> {
+  const result = await db.select()
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.token, token),
+        gt(passwordResetTokens.expiresAt, new Date()),
+        isNull(passwordResetTokens.usedAt)
+      )
+    )
+    .limit(1);
+  
+  if (!result[0]) {
+    return null;
+  }
+  
+  return result[0].userId;
+}
+
+export async function markTokenAsUsed(token: string): Promise<void> {
+  await db.update(passwordResetTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetTokens.token, token));
+}
+
+export async function updateUserPassword(userId: string, newPasswordHash: string): Promise<void> {
+  await db.update(users)
+    .set({ passwordHash: newPasswordHash })
+    .where(eq(users.id, userId));
 }

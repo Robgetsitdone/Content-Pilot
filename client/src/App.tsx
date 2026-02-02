@@ -13,6 +13,7 @@ import Analytics from "@/pages/Analytics";
 import Calendar from "@/pages/Calendar";
 import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 
 function ProtectedRoutes() {
   return (
@@ -34,6 +35,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route>
         <ProtectedRoutes />
       </Route>

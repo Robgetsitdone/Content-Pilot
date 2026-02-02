@@ -71,6 +71,15 @@ export const strategySettings = pgTable("strategy_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -114,3 +123,4 @@ export type StrategySettings = typeof strategySettings.$inferSelect;
 export type InsertStrategySettings = z.infer<typeof insertStrategySettingsSchema>;
 export type InstagramSettings = typeof instagramSettings.$inferSelect;
 export type InsertInstagramSettings = z.infer<typeof insertInstagramSettingsSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;

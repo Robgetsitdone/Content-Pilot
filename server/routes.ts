@@ -5,7 +5,8 @@ import { insertVideoSchema, insertStrategySettingsSchema, insertInstagramSetting
 import { generateCaptions, analyzeContent, analyzeImageBatch, analyzeImageBatchStreaming } from "./gemini";
 import { createPostReminder, deletePostReminder } from "./googleCalendar";
 import { publishToInstagram, checkAndPublishScheduledPosts } from "./instagram";
-import { requireAuth, hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId } from "./auth";
+import { requireAuth, hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId, createPasswordResetToken, verifyPasswordResetToken, markTokenAsUsed, updateUserPassword } from "./auth";
+import { sendPasswordResetEmail } from "./email";
 import { extractVideoFrame, isVideoMimeType } from "./videoProcessing";
 
 export async function registerRoutes(
@@ -79,6 +80,66 @@ export async function registerRoutes(
       res.clearCookie("connect.sid");
       res.json({ success: true });
     });
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const user = await findUserByEmail(email);
+      
+      // Always return success to prevent email enumeration
+      if (!user) {
+        console.log('[Auth] Forgot password request for non-existent email:', email);
+        return res.json({ success: true, message: "If an account exists, a reset email has been sent" });
+      }
+
+      const token = await createPasswordResetToken(user.id);
+      const emailSent = await sendPasswordResetEmail(email, token);
+      
+      if (!emailSent) {
+        console.error('[Auth] Failed to send password reset email to:', email);
+      }
+
+      res.json({ success: true, message: "If an account exists, a reset email has been sent" });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: "Reset token is required" });
+      }
+      
+      if (!password || typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      const userId = await verifyPasswordResetToken(token);
+      
+      if (!userId) {
+        return res.status(400).json({ error: "Invalid or expired reset link. Please request a new one." });
+      }
+
+      const passwordHash = await hashPassword(password);
+      await updateUserPassword(userId, passwordHash);
+      await markTokenAsUsed(token);
+
+      console.log('[Auth] Password reset successful for user:', userId);
+      res.json({ success: true, message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
   });
 
   app.get("/api/auth/me", async (req, res) => {
