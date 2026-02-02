@@ -9,9 +9,18 @@ Creator Pulse is an AI-powered content strategy and drip scheduling platform for
 The app uses secure email/password authentication with the following features:
 - **Sign up**: Create account with email, password (min 8 chars), and display name
 - **Sign in**: Login with email and password
+- **Password reset**: Forgot password flow with email-based reset link (1-hour expiration, single-use tokens)
 - **Session management**: Secure httpOnly cookies with PostgreSQL session store
 - **Protected routes**: All /api/* routes (except /api/auth/*) require authentication
 - **Data isolation**: Each user only sees their own content - videos, settings, and connections are completely private
+
+### Password Reset Flow
+1. User clicks "Forgot password?" on login page
+2. Enter email and submit - success message shown regardless of account existence (security)
+3. Email sent via Resend with branded HTML template containing reset link
+4. Reset link valid for 1 hour, single-use
+5. Token validated on page load before showing reset form
+6. User sets new password (min 8 chars) and can sign in immediately
 
 ## User Preferences
 
