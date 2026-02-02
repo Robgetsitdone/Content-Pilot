@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Zap, Lock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
+type TokenStatus = "loading" | "valid" | "invalid";
+
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -16,11 +18,30 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState<TokenStatus>("loading");
 
   useEffect(() => {
-    if (!token) {
-      setError("Invalid reset link. Please request a new password reset.");
-    }
+    const verifyToken = async () => {
+      if (!token) {
+        setTokenStatus("invalid");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+        
+        if (data.valid) {
+          setTokenStatus("valid");
+        } else {
+          setTokenStatus("invalid");
+        }
+      } catch {
+        setTokenStatus("invalid");
+      }
+    };
+
+    verifyToken();
   }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,7 +86,12 @@ export default function ResetPassword() {
         </div>
 
         <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-8">
-          {success ? (
+          {tokenStatus === "loading" ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-violet-400 mx-auto mb-4" />
+              <p className="text-zinc-400">Verifying reset link...</p>
+            </div>
+          ) : success ? (
             <div className="text-center py-4">
               <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-green-400" />
@@ -83,7 +109,7 @@ export default function ResetPassword() {
                 Sign In
               </Button>
             </div>
-          ) : !token ? (
+          ) : tokenStatus === "invalid" ? (
             <div className="text-center py-4">
               <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-8 h-8 text-red-400" />

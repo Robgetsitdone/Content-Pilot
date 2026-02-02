@@ -112,6 +112,27 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/auth/verify-reset-token", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.status(400).json({ valid: false, error: "Token is required" });
+      }
+
+      const userId = await verifyPasswordResetToken(token);
+      
+      if (!userId) {
+        return res.status(400).json({ valid: false, error: "Invalid or expired token" });
+      }
+
+      res.json({ valid: true });
+    } catch (error) {
+      console.error("Verify reset token error:", error);
+      res.status(500).json({ valid: false, error: "Failed to verify token" });
+    }
+  });
+
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
